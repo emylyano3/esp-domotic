@@ -1,0 +1,13 @@
+{
+  "name": "MQTTModule",
+  "keywords": "wifi, wi-fi",
+  "description": "ESP8266 MQTT generic module application",
+  "repository":
+  {
+    "type": "git",
+    "url": "https://github.com/emylyano3/mqtt-module"
+  },
+  "frameworks": "arduino",
+  "platforms": "espressif8266",
+  "version": "0.1"
+}
