@@ -2,8 +2,6 @@
 #define MQTTModule_h
 
 #include <ESP8266WiFi.h>
-#include <ESP8266WebServer.h>
-#include <DNSServer.h>
 #include <memory>
 
 extern "C" {
@@ -29,6 +27,15 @@ const char HTTP_END[] PROGMEM                       = "</div></body></html>";
 #endif
 #ifndef ESP_CONFIG_MAX_PARAMS
 #define ESP_CONFIG_MAX_PARAMS 10
+#endif
+#ifndef ESP_CONFIG_PARAM_LENGTH
+#define ESP_CONFIG_PARAM_LENGTH 16
+#endif
+#ifndef MQTT_BROKER_CONNECTION_RETRY
+#define MQTT_BROKER_CONNECTION_RETRY 5000
+#endif
+#ifndef DNS_PORT
+#define DNS_PORT 53
 #endif
 
 enum InputType {Combo, Text};
@@ -60,18 +67,22 @@ class ESPConfigParam {
         std::vector<char*>  _options;    // optciones para el combo
 };
 
-
 class MQTTModule {
     public:
         MQTTModule();
         ~MQTTModule();
 
+        /* init methods */
+        void            connectWifiNetwork(bool existConfig);
+        void            loop();
+
+        /* utils methods */
+        size_t          getFileSize (const char* fileName);
+        void            loadFile (const char* fileName, char buff[], size_t size);
+        
+        /* setup methods */
         void            setServer(const char* host, uint16_t port);
         void            setCallback(void (*callback)(char*, uint8_t*, unsigned int));
-        void            connectWifiNetwork(bool existConfig);
-        bool            startConfigPortal();
-
-        /* setup methods */
         void            setConnectionTimeout(unsigned long seconds);
         void            setPortalSSID(const char *apName);
         void            setPortalPassword(const char *apPass);
@@ -79,18 +90,26 @@ class MQTTModule {
         void            setDebugOutput(bool debug);
         void            setFeedbackPin(uint8_t pin);
         void            setAPStaticIP(IPAddress ip, IPAddress gw, IPAddress sn);
-        
+        void            setConfigFile(const char* configFile);
+        void            setModuleType(String type);
+
         // Returns the param under the specified index
         ESPConfigParam *getParameter(uint8_t index);
 
+        // Returns the module name when working as station
+        char*   getStationName();
+
+        //called when subscribing topics to mqtt broker
+        void    setSubscriptionCallback (void (*callback)(void));
+        
         //called when AP mode and config portal is started
-        void    setAPCallback( void (*func)(MQTTModule*) );
+        void    setAPCallback (void (*func)(MQTTModule*));
         
         //called when connecting station to AP
-        void    setStationNameCallback(char* (*func)(void));
+        void    setStationNameCallback (char* (*func)(void));
         
         //called when settings have been changed and connection was successful
-        void    setSaveConfigCallback( void (*func)(void) );
+        void    setSaveConfigCallback (void (*func)(void));
         
         //defaults to not showing anything under 8% signal quality if called
         void    setMinimumSignalQuality(int quality = 8);
@@ -102,42 +121,51 @@ class MQTTModule {
         void    nonBlockingFeedback(uint8_t pin, int stepTime);
 
     private:
-
-        std::unique_ptr<DNSServer>        _dnsServer;
-        std::unique_ptr<ESP8266WebServer> _server;
         
-        const char*     _apName             = "ESP-Module";
-        const char*     _apPass             = NULL;
-        int             _minimumQuality     = -1;
-        uint8_t         _paramsCount;
-        uint8_t         _max_params;
-        bool            _connect;
-        bool            _debug              = true;
-        uint8_t         _feedbackPin        = INVALID_PIN_NO;
-
-        const uint8_t   DNS_PORT            = 53;
-
-        uint8_t connectWifi(String ssid, String pass);
-        uint8_t connectWiFi();
-        uint8_t waitForConnectResult();
-        void    setupConfigPortal();
-
-        unsigned long       _connectionTimeout;
-        
-        // Signal feedback
-        bool                _sigfbkIsOn           = false;
-        unsigned long       _sigfbkStepControl    = 0;
-        ESPConfigParam**    _configParams;
+        /* Module settings */
+        const char*         _apName             = "ESP-Module";
+        const char*         _apPass             = NULL;
+        String              _moduleType         = "generic";
+        char                _stationName[ESP_CONFIG_PARAM_LENGTH * 3 + 4];
+        const char*         _configFile         = NULL;
+        int                 _minimumQuality     = -1;
+        bool                _debug              = true;
         
         IPAddress           _ap_static_ip;
         IPAddress           _ap_static_gw;
         IPAddress           _ap_static_sn;
 
+        /* Config parametters */
+        uint8_t             _paramsCount;
+        uint8_t             _max_params;
+        ESPConfigParam**    _configParams;
+
+        /* Wifi connection control */
+        bool                _connect;
+        unsigned long       _connectionTimeout;
+        
+        /* MQTT broker reconnection control */
+        unsigned long       _mqttNextConnAtte     = 0;
+        
+        /* Signal feedback */
+        uint8_t             _feedbackPin        = INVALID_PIN_NO;
+        bool                _sigfbkIsOn         = false;
+        unsigned long       _sigfbkStepControl  = 0;
+        
         /* Callbacks */
         void        (*_apcallback)(MQTTModule*)         = NULL;
         void        (*_savecallback)(void)              = NULL;
-        char*       (*_getStationNameCallback)(void)    = NULL;
-        
+        void        (*_subscriptionCallback)(void)      = NULL;
+        char*       (*_stationNameCallback)(void)       = NULL;
+
+
+        uint8_t     connectWifi(String ssid, String pass);
+        uint8_t     connectWiFi();
+        bool        startConfigPortal();
+        uint8_t     waitForConnectResult();
+        void        setupConfigPortal();
+        bool        loadConfig();
+        void        connectBroker();
         void        handleRoot();
         void        handleWifi(bool scan);
         void        handleWifiSave();
@@ -150,6 +178,7 @@ class MQTTModule {
         bool        isIp(String str);
         String      toStringIp(IPAddress ip);
         int         getRSSIasQuality(int RSSI);
+        String      getStationTopic (String cmd);
 
         template <class T> void debug(T text);
         template <class T, class U> void debug(T key, U value);

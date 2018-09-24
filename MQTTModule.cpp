@@ -1,6 +1,10 @@
+#include <FS.h>
 #include "MQTTModule.h"
 #include <WifiClient.h>
 #include <PubSubClient.h>
+#include <ESP8266WebServer.h>
+#include <ESP8266HTTPUpdateServer.h>
+#include <DNSServer.h>
 
 ESPConfigParam::ESPConfigParam (InputType type, const char* name, const char* label, const char* defVal, uint8_t length, const char* html) {
   _type = type;
@@ -51,11 +55,18 @@ void ESPConfigParam::updateValue (const char *v) {
   s.toCharArray(_value, _length);
 }
 
-WiFiClient      _wifiClient;
-PubSubClient    _mqttClient(_wifiClient);
+WiFiClient              _wifiClient;
+PubSubClient            _mqttClient(_wifiClient);
+ESP8266WebServer        _httpServer(80);
+ESP8266HTTPUpdateServer _httpUpdater;
 
-ESPConfigParam _mqttPortCfg (Text, "mqttPort", "MQTT port", "", 6, "required");  // port range is from 0 to 65535
-ESPConfigParam _mqttHostCfg (Text, "mqttHost", "MQTT host", "", 16, "required"); // IP max length is 15 chars
+std::unique_ptr<DNSServer>        _dnsServer;
+std::unique_ptr<ESP8266WebServer> _server;
+
+ESPConfigParam _moduleName (Text, "moduleName", "Module name", "", ESP_CONFIG_PARAM_LENGTH, "required");
+ESPConfigParam _moduleLocation (Text, "moduleLocation", "Module location", "", ESP_CONFIG_PARAM_LENGTH, "required");
+ESPConfigParam _mqttPort (Text, "mqttPort", "MQTT port", "", 6, "required");  // port range is from 0 to 65535
+ESPConfigParam _mqttHost (Text, "mqttHost", "MQTT host", "", ESP_CONFIG_PARAM_LENGTH, "required"); // IP max length is 15 chars
 
 void MQTTModule::setServer(const char* host, uint16_t port) {
   _mqttClient.setServer(host, port);
@@ -137,6 +148,51 @@ bool MQTTModule::startConfigPortal() {
   return  WiFi.status() == WL_CONNECTED;
 }
 
+void MQTTModule::loop() {
+  _httpServer.handleClient();
+  if (!_mqttClient.connected()) {
+    connectBroker();
+  }
+  _mqttClient.loop();
+}
+
+/*
+  Returns the size of a file. 
+  If 
+    > the file does not exist
+    > the FS cannot be mounted
+    > the file cannot be opened for writing
+    > the file is empty
+  the value returned is 0.
+  Otherwise the size of the file is returned.
+*/
+size_t MQTTModule::getFileSize (const char* fileName) {
+  if (SPIFFS.begin()) {
+    if (SPIFFS.exists(fileName)) {
+      File file = SPIFFS.open(fileName, "r");
+      if (file) {
+        size_t s = file.size();
+        file.close();
+        return s;
+      } else {
+        file.close();
+        debug(F("Cant open file"), fileName);
+      }
+    } else {
+      debug(F("File not found"), fileName);
+    }
+  } else {
+    debug(F("Failed to mount FS"));
+  }
+  return 0;
+}
+
+void MQTTModule::loadFile (const char* fileName, char buff[], size_t size) {
+  File file = SPIFFS.open(fileName, "r");
+  file.readBytes(buff, size);
+  file.close();
+}
+
 void MQTTModule::setConnectionTimeout(unsigned long seconds) {
   _connectionTimeout = seconds;
 }
@@ -153,6 +209,14 @@ void MQTTModule::setMinimumSignalQuality(int quality) {
   _minimumQuality = quality;
 }
 
+void MQTTModule::setConfigFile(const char* configFile) {
+  _configFile = configFile;
+}
+
+void MQTTModule::setModuleType(String type) {
+  _moduleType = type;
+}
+
 void MQTTModule::setDebugOutput(bool debug) {
   _debug = debug;
 }
@@ -163,23 +227,27 @@ void MQTTModule::setAPStaticIP(IPAddress ip, IPAddress gw, IPAddress sn) {
   _ap_static_sn = sn;
 }
 
-void MQTTModule::setFeedbackPin(uint8_t pin) {
+void MQTTModule::setFeedbackPin (uint8_t pin) {
   _feedbackPin = pin;
 }
 
-void MQTTModule::setAPCallback( void (*func)(MQTTModule* myESPConfig) ) {
-  _apcallback = func;
+void MQTTModule::setAPCallback (void (*callback)(MQTTModule* myESPConfig)) {
+  _apcallback = callback;
 }
 
-void MQTTModule::setSaveConfigCallback( void (*func)(void) ) {
-  _savecallback = func;
+void MQTTModule::setSaveConfigCallback (void (*callback)(void)) {
+  _savecallback = callback;
 }
 
-void MQTTModule::setStationNameCallback(char* (*func)(void)) {
-  _getStationNameCallback = func;
+void MQTTModule::setSubscriptionCallback (void (*callback)(void)){
+  _subscriptionCallback = callback;
 }
 
-ESPConfigParam* MQTTModule::getParameter(uint8_t index) {
+void MQTTModule::setStationNameCallback (char* (*callback)(void)) {
+  _stationNameCallback = callback;
+}
+
+ESPConfigParam* MQTTModule::getParameter (uint8_t index) {
   if (index >= _paramsCount) {
     return NULL;
   } else {
@@ -229,17 +297,32 @@ uint8_t MQTTModule::connectWifi(String ssid, String pass) {
     debug(F("Already connected. Bailing out."));
     return WL_CONNECTED;
   }
-  if (_getStationNameCallback) {
-    WiFi.hostname(_getStationNameCallback());
+  if (_stationNameCallback) {
+    WiFi.hostname(_stationNameCallback());
   }
   WiFi.begin(ssid.c_str(), pass.c_str());
   return waitForConnectResult();
 }
 
+
+char* MQTTModule::getStationName () {
+  if (strlen(_stationName) <= 0) {
+    size_t size = _moduleType.length() + _moduleLocation.getValueLength() + _moduleName.getValueLength() + 4;
+    String sn;
+    sn.concat(_moduleType);
+    sn.concat("_");
+    sn.concat(_moduleLocation.getValue()); 
+    sn.concat("_");
+    sn.concat(_moduleName.getValue());
+    sn.toCharArray(_stationName, size);
+  } 
+  return _stationName;
+}
+
 uint8_t MQTTModule::connectWiFi() {
   WiFi.mode(WIFI_STA);
-  if (_getStationNameCallback) {
-    WiFi.hostname(_getStationNameCallback());
+  if (_stationNameCallback) {
+    WiFi.hostname(_stationNameCallback());
   }
   if (WiFi.SSID()) {
     debug(F("Using last saved values, should be faster"));
@@ -252,6 +335,27 @@ uint8_t MQTTModule::connectWiFi() {
   } else {
     debug(F("No saved credentials"));
     return WL_CONNECT_FAILED;
+  }
+}
+
+bool MQTTModule::loadConfig() {
+  //TODO
+  return true;
+}
+
+
+void MQTTModule::connectBroker() {
+  if (_mqttNextConnAtte <= millis()) {
+    _mqttNextConnAtte = millis() + MQTT_BROKER_CONNECTION_RETRY;
+    debug(F("Connecting MQTT broker as"), getStationName());
+    if (_mqttClient.connect(getStationName())) {
+      debug(F("MQTT broker Connected"));
+      if (_subscriptionCallback) {
+        _subscriptionCallback();
+      }
+    } else {
+      debug(F("Failed. RC:"), _mqttClient.state());
+    }
   }
 }
 
@@ -510,6 +614,10 @@ int MQTTModule::getRSSIasQuality(int RSSI) {
     quality = 2 * (RSSI + 100);
   }
   return quality;
+}
+
+String MQTTModule::getStationTopic (String cmd) {
+  return _moduleType + F("/") + _moduleLocation.getValue() + F("/") + _moduleName.getValue() + F("/") + cmd;
 }
 
 template <class T> void MQTTModule::debug (T text) {
