@@ -54,6 +54,7 @@ class MQTTModule {
 
         /* Utils */
         bool                                loadConfig ();
+        void                                saveConfig();
         void                                connectBroker();
         template <class T> void             debug(T text);
         template <class T, class U> void    debug(T key, U value);

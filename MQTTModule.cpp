@@ -57,8 +57,8 @@ void MQTTModule::init() {
     _moduleConfig->setFeedbackPin(_feedbackPin);
     _moduleConfig->setAPStaticIP(_static_ip_ap, _static_ip_gw, _static_ip_sm);
     _moduleConfig->setMinimumSignalQuality(_minimumQuality);
-    // _moduleConfig->setStationNameCallback(getStationName);
-    // _moduleConfig->setSaveConfigCallback(saveConfig);
+    // _moduleConfig->setStationNameCallback(std::bind(&MQTTModule::getStationName, this));
+    _moduleConfig->setSaveConfigCallback(std::bind(&MQTTModule::saveConfig, this));
     _moduleConfig->connectWifiNetwork(loadConfig());
     _moduleConfig->blockingFeedback(_feedbackPin, 100, 8);
 
@@ -159,6 +159,27 @@ bool MQTTModule::loadConfig () {
     }
   }
   return false;
+}
+
+void MQTTModule::saveConfig () {
+  File file = SPIFFS.open(_configFile, "w");
+  if (file) {
+    DynamicJsonBuffer jsonBuffer;
+    JsonObject& json = jsonBuffer.createObject();
+    //TODO Trim param values
+    for (uint8_t i = 0; i < _moduleConfig->getParamsCount(); ++i) {
+      json[_moduleConfig->getParameter(i)->getName()] = _moduleConfig->getParameter(i)->getValue();
+    }
+    json.printTo(file);
+    debug(F("Configuration file saved"));
+    if (_debug) {
+        json.printTo(Serial);
+        Serial.println();
+    }
+    file.close();
+  } else {
+    debug(F("Failed to open config file for writing"));
+  }
 }
 
 void MQTTModule::connectBroker () {
