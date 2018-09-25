@@ -1,16 +1,36 @@
 #include <MQTTModule.h>
 
-MQTTModule mqttModule;
+#define DEBUG           true
+#define FEEDBACK_PIN    D7
+
+MQTTModule  mqttModule;
+bool        _condition;
 
 void setup() {
-    mqttModule.setCallback(receiveMessage);
-    mqttModule.setServer("192.168.0.1", 1883);
+    // mqttModule.setAPStaticIP(IPAddress(10,10,10,10),IPAddress(IPAddress(10,10,10,10)),IPAddress(IPAddress(255,255,255,0)));
+    // mqttModule.setConfigFile("/config.json");
+    // mqttModule.setConnectionTimeout(5000);
+    // mqttModule.setMinimumSignalQuality(30);
+    // mqttModule.setModuleType("test");
+    // mqttModule.setFeedbackPin(FEEDBACK_PIN);
+    // mqttModule.setClientCallback(receiveMessage);
+    Serial.begin(115200);
+    mqttModule.setDebugOutput(DEBUG);
+    mqttModule.setFeedbackPin(FEEDBACK_PIN);
+    mqttModule.setSubscriptionCallback(mqttSubscription);
+    mqttModule.setModuleType("testModule");
+    Serial.printf("Station name is: %s", mqttModule.getStationName());
+    mqttModule.init();
 }
 
 void loop () {
-
+    mqttModule.loop();
+    if (_condition) {
+        mqttModule.getMQTTClient()->unsubscribe("oldTopic");
+        mqttModule.getMQTTClient()->subscribe("newTopic");
+    }
 }
 
-void receiveMessage(char* topic, uint8_t* payload, unsigned int length) {
-
+void mqttSubscription() {
+    mqttModule.getMQTTClient()->subscribe("oldTopic");
 }
