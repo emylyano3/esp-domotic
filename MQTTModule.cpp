@@ -217,6 +217,10 @@ void MQTTModule::setModuleType(String type) {
   _moduleType = type;
 }
 
+void publish(const char* topic, const char* payload) {
+  _mqttClient.publish(topic, payload);
+}
+
 void MQTTModule::setDebugOutput(bool debug) {
   _debug = debug;
 }

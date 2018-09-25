@@ -92,6 +92,7 @@ class MQTTModule {
         void            setAPStaticIP(IPAddress ip, IPAddress gw, IPAddress sn);
         void            setConfigFile(const char* configFile);
         void            setModuleType(String type);
+        void            publish(const char* topic, const char* payload);
 
         // Returns the param under the specified index
         ESPConfigParam *getParameter(uint8_t index);
