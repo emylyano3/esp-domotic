@@ -6,7 +6,7 @@
 
 #define PARAM_LENGTH        16
 
-/* Local settings (these could be exporter to user) */
+/* Local settings (these could be exported to user through setters) */
 /* Wifi connection */
 int             _minimumQuality     = 30;
 IPAddress       _static_ip_ap       = IPAddress(10,10,10,10);
@@ -19,21 +19,22 @@ const char*     _portalSSID         = "ESP-Irrigation";
 const char*     _configFile         = "/config.json";
 
 /* MQTT Broker */
-unsigned long   _mqttNextReconnection   = 0;
 unsigned long   _mqttReconectionWait    = 5000;
 
-
 /* Delegation */
-ESPConfig*                  _moduleConfig;
-PubSubClient*               _mqttClient;
-ESP8266WebServer            _httpServer(80);
-ESP8266HTTPUpdateServer     _httpUpdater;
+ESPConfig*              _moduleConfig;
+PubSubClient*           _mqttClient;
+ESP8266WebServer        _httpServer(80);
+ESP8266HTTPUpdateServer _httpUpdater;
 
 /* Config params */
 ESPConfigParam          _mqttPort (Text, "mqttPort", "MQTT port", "", 6, "required");            // port range is from 0 to 65535
 ESPConfigParam          _mqttHost (Text, "mqttHost", "MQTT host", "", PARAM_LENGTH, "required"); // IP max length is 15 chars
 ESPConfigParam          _moduleName (Text, "moduleName", "Module name", "", PARAM_LENGTH, "required");
 ESPConfigParam          _moduleLocation (Text, "moduleLocation", "Module location", "", PARAM_LENGTH, "required");
+
+/* Control */
+unsigned long           _mqttNextReconnection   = 0;
 
 MQTTModule::MQTTModule() {
     String aux = String("esp-module"); //TODO concat ESP.getChipID()

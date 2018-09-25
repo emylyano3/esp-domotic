@@ -3,7 +3,7 @@
 #define DEBUG           true
 #define FEEDBACK_PIN    D7
 
-MQTTModule  mqttModule;
+MQTTModule* _mqttModule;
 bool        _condition;
 
 void setup() {
@@ -12,25 +12,26 @@ void setup() {
     // mqttModule.setConnectionTimeout(5000);
     // mqttModule.setMinimumSignalQuality(30);
     Serial.begin(115200);
-    mqttModule.setDebugOutput(DEBUG);
-    mqttModule.setFeedbackPin(FEEDBACK_PIN);
-    mqttModule.setSubscriptionCallback(mqttSubscription);
-    mqttModule.setModuleType("testModule");
-    mqttModule.setMqttReceiveCallback(receiveMqttMessage);
-    mqttModule.init();
-    Serial.printf("Station name is: %s", mqttModule.getStationName());
+    _mqttModule->setDebugOutput(DEBUG);
+    _mqttModule->setModuleType("testModule");
+    _mqttModule->setFeedbackPin(FEEDBACK_PIN);
+    _mqttModule->setSubscriptionCallback(mqttSubscription);
+    _mqttModule->setMqttReceiveCallback(receiveMqttMessage);
+    _mqttModule->init();
+    Serial.printf("Station name is: %s", _mqttModule->getStationName());
+    Serial.printf("Total parameters set: %d", _mqttModule->getConfig()->getParamsCount());
 }
 
 void loop () {
-    mqttModule.loop();
+    _mqttModule->loop();
     if (_condition) {
-        mqttModule.getMQTTClient()->unsubscribe("oldTopic");
-        mqttModule.getMQTTClient()->subscribe("newTopic");
+        _mqttModule->getMQTTClient()->unsubscribe("oldTopic");
+        _mqttModule->getMQTTClient()->subscribe("newTopic");
     }
 }
 
 void mqttSubscription() {
-    mqttModule.getMQTTClient()->subscribe("oldTopic");
+    _mqttModule->getMQTTClient()->subscribe("oldTopic");
 }
 
 void receiveMqttMessage(char* topic, uint8_t* payload, unsigned int length) {
