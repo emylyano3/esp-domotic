@@ -35,6 +35,11 @@ class MQTTModule {
         void            setModuleType(String mt);
         void            setFeedbackPin(uint8_t pin);
         void            setSubscriptionCallback(void(*callback)(void));
+        void            setMqttReceiveCallback(void (*callback)(char*, uint8_t*, unsigned int));
+
+        /* Utils */
+        size_t          getFileSize (const char* fileName);
+        void            loadFile (const char* fileName, char buff[], size_t size);
 
     private:
         /* State */
@@ -44,9 +49,12 @@ class MQTTModule {
         uint8_t         _feedbackPin;
 
         /* Callbacks */
-        void            (*_subscriptionCallback)(void)      = NULL;
+        void            (*_subscriptionCallback)(void)                      = NULL;
+        void            (*_mqttCallback)(char*, uint8_t*, unsigned int)     = NULL;
 
         /* Utils */
+        bool                                loadConfig ();
+        void                                connectBroker();
         template <class T> void             debug(T text);
         template <class T, class U> void    debug(T key, U value);
 };

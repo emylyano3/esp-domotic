@@ -1,3 +1,5 @@
+#include <FS.h>
+#include <ArduinoJson.h>
 #include <MQTTModule.h>
 #include <ESP8266mDNS.h>
 #include <ESP8266HTTPUpdateServer.h>
@@ -5,13 +7,21 @@
 #define PARAM_LENGTH        16
 
 /* Local settings (these could be exporter to user) */
+/* Wifi connection */
 int             _minimumQuality     = 30;
 IPAddress       _static_ip_ap       = IPAddress(10,10,10,10);
 IPAddress       _static_ip_gw       = IPAddress(10,10,10,10);
 IPAddress       _static_ip_sm       = IPAddress(255,255,255,0);
 unsigned long   _connectionTimeout  = 5000;
 const char*     _portalSSID         = "ESP-Irrigation";
+
+/* Module config */
 const char*     _configFile         = "/config.json";
+
+/* MQTT Broker */
+unsigned long   _mqttNextReconnection   = 0;
+unsigned long   _mqttReconectionWait    = 5000;
+
 
 /* Delegation */
 ESPConfig*                  _moduleConfig;
@@ -48,7 +58,7 @@ void MQTTModule::init() {
     _moduleConfig->setMinimumSignalQuality(_minimumQuality);
     // _moduleConfig->setStationNameCallback(getStationName);
     // _moduleConfig->setSaveConfigCallback(saveConfig);
-    // _moduleConfig->connectWifiNetwork(loadConfig());
+    _moduleConfig->connectWifiNetwork(loadConfig());
     _moduleConfig->blockingFeedback(_feedbackPin, 100, 8);
 
     /* MQTT Broker */
@@ -57,7 +67,9 @@ void MQTTModule::init() {
     debug(F("MQTT Host"), _mqttHost.getValue());
     debug(F("MQTT Port"), port);
     _mqttClient->setServer(_mqttHost.getValue(), (uint16_t) port.toInt());
-    // _mqttClient.setCallback(receiveMqttMessage);
+    if (_mqttCallback) {
+        _mqttClient->setCallback(_mqttCallback);
+    }
 
     /* OTA Update */
     debug(F("Setting OTA update"));
@@ -74,6 +86,9 @@ void MQTTModule::init() {
 
 void MQTTModule::loop() {
     _httpServer.handleClient();
+    if (!_mqttClient->connected()) {
+        connectBroker();
+    }
 }
 
 /* Setup methods */
@@ -91,6 +106,10 @@ void MQTTModule::setFeedbackPin (uint8_t pin) {
 
 void MQTTModule::setSubscriptionCallback(void(*callback)(void)) {
     _subscriptionCallback = callback;
+}
+
+void MQTTModule::setMqttReceiveCallback(void (*callback)(char*, uint8_t*, unsigned int)) {
+    _mqttCallback = callback;
 }
 
 /* Getters of delegation */
@@ -115,6 +134,82 @@ char* MQTTModule::getStationName () {
     sn.toCharArray(_stationName, size);
   } 
   return _stationName;
+}
+
+bool MQTTModule::loadConfig () {
+  size_t size = getFileSize(_configFile);
+  if (size > 0) {
+    char buff[size];
+    loadFile(_configFile, buff, size);
+    DynamicJsonBuffer jsonBuffer;
+    JsonObject& json = jsonBuffer.parseObject(buff);
+    if (json.success()) {
+      if (_debug) {
+        json.printTo(Serial);
+        Serial.println();
+      }
+      for (uint8_t i = 0; i < _moduleConfig->getParamsCount(); ++i) {
+        _moduleConfig->getParameter(i)->updateValue(json[_moduleConfig->getParameter(i)->getName()]);
+        debug(_moduleConfig->getParameter(i)->getName(), _moduleConfig->getParameter(i)->getValue());
+      }
+      return true;
+    } else {
+      debug(F("Failed to load json config"));
+    }
+  }
+  return false;
+}
+
+void MQTTModule::connectBroker () {
+  if (_mqttNextReconnection <= millis()) {
+    _mqttNextReconnection = millis() + _mqttReconectionWait;
+    debug(F("Connecting MQTT broker as"), getStationName());
+    if (_mqttClient->connect(getStationName())) {
+      debug(F("MQTT broker Connected"));
+      if (_subscriptionCallback) {
+        _subscriptionCallback();
+      }
+    } else {
+      debug(F("Failed. RC:"), _mqttClient->state());
+    }
+  }
+}
+
+/*
+  Returns the size of a file. 
+  If 
+    > the file does not exist
+    > the FS cannot be mounted
+    > the file cannot be opened for writing
+    > the file is empty
+  the value returned is 0.
+  Otherwise the size of the file is returned.
+*/
+size_t MQTTModule::getFileSize (const char* fileName) {
+  if (SPIFFS.begin()) {
+    if (SPIFFS.exists(fileName)) {
+      File file = SPIFFS.open(fileName, "r");
+      if (file) {
+        size_t s = file.size();
+        file.close();
+        return s;
+      } else {
+        file.close();
+        debug(F("Cant open file"), fileName);
+      }
+    } else {
+      debug(F("File not found"), fileName);
+    }
+  } else {
+    debug(F("Failed to mount FS"));
+  }
+  return 0;
+}
+
+void MQTTModule::loadFile (const char* fileName, char buff[], size_t size) {
+  File file = SPIFFS.open(fileName, "r");
+  file.readBytes(buff, size);
+  file.close();
 }
 
 template <class T> void MQTTModule::debug (T text) {

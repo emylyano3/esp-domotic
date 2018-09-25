@@ -16,6 +16,7 @@ void setup() {
     mqttModule.setFeedbackPin(FEEDBACK_PIN);
     mqttModule.setSubscriptionCallback(mqttSubscription);
     mqttModule.setModuleType("testModule");
+    mqttModule.setMqttReceiveCallback(receiveMqttMessage);
     mqttModule.init();
     Serial.printf("Station name is: %s", mqttModule.getStationName());
 }
@@ -30,4 +31,8 @@ void loop () {
 
 void mqttSubscription() {
     mqttModule.getMQTTClient()->subscribe("oldTopic");
+}
+
+void receiveMqttMessage(char* topic, uint8_t* payload, unsigned int length) {
+
 }
