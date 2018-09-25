@@ -54,14 +54,17 @@ void MQTTModule::init() {
     _moduleConfig->addParameter(&_mqttPort);
     _moduleConfig->setConnectionTimeout(_connectionTimeout);
     _moduleConfig->setPortalSSID(_portalSSID);
-    _moduleConfig->setFeedbackPin(_feedbackPin);
     _moduleConfig->setAPStaticIP(_static_ip_ap, _static_ip_gw, _static_ip_sm);
     _moduleConfig->setMinimumSignalQuality(_minimumQuality);
     _moduleConfig->setStationNameCallback(std::bind(&MQTTModule::getStationName, this));
     _moduleConfig->setSaveConfigCallback(std::bind(&MQTTModule::saveConfig, this));
+    if (_feedbackPin != INVALID_PIN_NO) {
+      _moduleConfig->setFeedbackPin(_feedbackPin);
+    }
     _moduleConfig->connectWifiNetwork(loadConfig());
-    _moduleConfig->blockingFeedback(_feedbackPin, 100, 8);
-
+    if (_feedbackPin != INVALID_PIN_NO) {
+      _moduleConfig->blockingFeedback(_feedbackPin, 100, 8);
+    }
     /* MQTT Broker */
     debug(F("Configuring MQTT broker"));
     String port = String(_mqttPort.getValue());
