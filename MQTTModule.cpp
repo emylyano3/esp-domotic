@@ -126,11 +126,11 @@ PubSubClient* MQTTModule::getMQTTClient() {
 }
 
 char* MQTTModule::getModuleLocation () {
-  _moduleLocation.getValue();
+  return _moduleLocation.getValue();
 }
 
 char* MQTTModule::getModuleName () {
-  _moduleName.getValue();
+  return _moduleName.getValue();
 }
 
 /* Primitives */
