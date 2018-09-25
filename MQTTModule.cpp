@@ -57,7 +57,7 @@ void MQTTModule::init() {
     _moduleConfig->setFeedbackPin(_feedbackPin);
     _moduleConfig->setAPStaticIP(_static_ip_ap, _static_ip_gw, _static_ip_sm);
     _moduleConfig->setMinimumSignalQuality(_minimumQuality);
-    // _moduleConfig->setStationNameCallback(std::bind(&MQTTModule::getStationName, this));
+    _moduleConfig->setStationNameCallback(std::bind(&MQTTModule::getStationName, this));
     _moduleConfig->setSaveConfigCallback(std::bind(&MQTTModule::saveConfig, this));
     _moduleConfig->connectWifiNetwork(loadConfig());
     _moduleConfig->blockingFeedback(_feedbackPin, 100, 8);
