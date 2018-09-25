@@ -11,6 +11,7 @@ IPAddress       _static_ip_gw       = IPAddress(10,10,10,10);
 IPAddress       _static_ip_sm       = IPAddress(255,255,255,0);
 unsigned long   _connectionTimeout  = 5000;
 const char*     _portalSSID         = "ESP-Irrigation";
+const char*     _configFile         = "/config.json";
 
 /* Delegation */
 ESPConfig*                  _moduleConfig;
@@ -45,6 +46,7 @@ void MQTTModule::init() {
     _moduleConfig->setFeedbackPin(_feedbackPin);
     _moduleConfig->setAPStaticIP(_static_ip_ap, _static_ip_gw, _static_ip_sm);
     _moduleConfig->setMinimumSignalQuality(_minimumQuality);
+    // _moduleConfig->setStationNameCallback(getStationName);
     // _moduleConfig->setSaveConfigCallback(saveConfig);
     // _moduleConfig->connectWifiNetwork(loadConfig());
     _moduleConfig->blockingFeedback(_feedbackPin, 100, 8);

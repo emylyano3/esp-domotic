@@ -11,16 +11,13 @@ void setup() {
     // mqttModule.setConfigFile("/config.json");
     // mqttModule.setConnectionTimeout(5000);
     // mqttModule.setMinimumSignalQuality(30);
-    // mqttModule.setModuleType("test");
-    // mqttModule.setFeedbackPin(FEEDBACK_PIN);
-    // mqttModule.setClientCallback(receiveMessage);
     Serial.begin(115200);
     mqttModule.setDebugOutput(DEBUG);
     mqttModule.setFeedbackPin(FEEDBACK_PIN);
     mqttModule.setSubscriptionCallback(mqttSubscription);
     mqttModule.setModuleType("testModule");
-    Serial.printf("Station name is: %s", mqttModule.getStationName());
     mqttModule.init();
+    Serial.printf("Station name is: %s", mqttModule.getStationName());
 }
 
 void loop () {
