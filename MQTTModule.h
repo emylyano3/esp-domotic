@@ -28,7 +28,8 @@ class MQTTModule {
         /* Getters */
         ESPConfig*      getConfig();
         PubSubClient*   getMQTTClient();
-        char*           getStationName();
+        char*           getModuleLocation();
+        char*           getModuleName();
 
         /* Setup methods */
         void            setDebugOutput(bool debug);
@@ -56,6 +57,7 @@ class MQTTModule {
         bool                                loadConfig ();
         void                                saveConfig();
         void                                connectBroker();
+        char*                               getStationName();
         template <class T> void             debug(T text);
         template <class T, class U> void    debug(T key, U value);
 };

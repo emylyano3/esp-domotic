@@ -18,7 +18,7 @@ void setup() {
     _mqttModule->setSubscriptionCallback(mqttSubscription);
     _mqttModule->setMqttReceiveCallback(receiveMqttMessage);
     _mqttModule->init();
-    Serial.printf("Station name is: %s", _mqttModule->getStationName());
+    Serial.printf("Station name is: %s", _mqttModule->getModuleName());
     Serial.printf("Total parameters set: %d", _mqttModule->getConfig()->getParamsCount());
 }
 
