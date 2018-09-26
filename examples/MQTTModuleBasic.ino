@@ -25,6 +25,8 @@ void setup() {
 void loop () {
     _mqttModule->loop();
     if (_condition) {
+        Serial.printf("Module name is: %s", _mqttModule->getModuleName());
+        Serial.printf("Module location is: %s", _mqttModule->getModuleLocation());
         _mqttModule->getMQTTClient()->unsubscribe("oldTopic");
         _mqttModule->getMQTTClient()->subscribe("newTopic");
     }

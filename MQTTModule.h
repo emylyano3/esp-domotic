@@ -28,8 +28,8 @@ class MQTTModule {
         /* Getters */
         ESPConfig*      getConfig();
         PubSubClient*   getMQTTClient();
-        char*           getModuleLocation();
-        char*           getModuleName();
+        const char*     getModuleLocation();
+        const char*     getModuleName();
 
         /* Setup methods */
         void            setDebugOutput(bool debug);

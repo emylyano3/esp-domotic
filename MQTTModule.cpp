@@ -125,11 +125,11 @@ PubSubClient* MQTTModule::getMQTTClient() {
     return _mqttClient;
 }
 
-char* MQTTModule::getModuleLocation () {
+const char* MQTTModule::getModuleLocation () {
   return _moduleLocation.getValue();
 }
 
-char* MQTTModule::getModuleName () {
+const char* MQTTModule::getModuleName () {
   return _moduleName.getValue();
 }
 
