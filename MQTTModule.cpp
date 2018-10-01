@@ -8,14 +8,27 @@
 
 #include <ArduinoJson.h>
 
+#ifndef PARAM_LENGTH
+#define PARAM_LENGTH 16
+#endif
+
 /* Config params */
 ESPConfigParam            _mqttPort (Text, "mqttPort", "MQTT port", "", 6, "required");            // port range is from 0 to 65535
 ESPConfigParam            _mqttHost (Text, "mqttHost", "MQTT host", "", PARAM_LENGTH, "required"); // IP max length is 15 chars
 ESPConfigParam            _moduleName (Text, "moduleName", "Module name", "", PARAM_LENGTH, "required");
 ESPConfigParam            _moduleLocation (Text, "moduleLocation", "Module location", "", PARAM_LENGTH, "required");
 
+/* HTTP Update */
 ESP8266WebServer          _httpServer(80);
 ESP8266HTTPUpdateServer   _httpUpdater;
+
+/* MQTT client */
+WiFiClient                _wifiClient;
+PubSubClient              _mqttClient(_wifiClient);
+/* MQTT broker reconnection control */
+unsigned long             _mqttNextConnAtte     = 0;
+
+char                      _stationName[PARAM_LENGTH * 3 + 4];
 
 MQTTModule::MQTTModule() {
 }
@@ -45,7 +58,15 @@ void MQTTModule::init() {
   //   _moduleConfig.blockingFeedback(_feedbackPin, 100, 8);
   // }
   Serial.println("Connected to wifi....");
-    WiFi.disconnect();
+  // MQTT Server config
+  debug(F("Configuring MQTT broker"));
+  debug(F("Port"), getMqttServerPort());
+  debug(F("Server"), getMqttServerHost());
+  _mqttClient.setServer(getMqttServerHost(), getMqttServerPort());
+  if (_mqttMessageCallback) {
+    _mqttClient.setCallback(_mqttMessageCallback);
+  }
+  // OTA Update
   debug(F("Setting OTA update"));
   MDNS.begin(getStationName());
   MDNS.addService("http", "tcp", 80);
@@ -58,6 +79,22 @@ void MQTTModule::init() {
 
 void MQTTModule::loop() {
   _httpServer.handleClient();
+  if (!_mqttClient.connected()) {
+    connectBroker();
+  }
+  _mqttClient.loop();
+}
+
+void MQTTModule::setModuleType (const char* mt) {
+  _moduleType = mt;
+}
+
+void MQTTModule::setMqttConnectionCallback(std::function<void()> callback) {
+    _mqttConnectionCallback = callback;
+}
+
+void MQTTModule::setMqttMessageCallback(std::function<void(char*, uint8_t*, unsigned int)> callback) {
+  _mqttMessageCallback = callback;
 }
 
 uint16_t MQTTModule::getMqttServerPort() {
@@ -74,6 +111,10 @@ const char* MQTTModule::getModuleName() {
 
 const char* MQTTModule::getModuleLocation() {
   return _moduleLocation.getValue();
+}
+
+PubSubClient* MQTTModule::getMqttClient() {
+  return &_mqttClient;
 }
 
 /*
@@ -111,6 +152,21 @@ void MQTTModule::loadFile (const char* fileName, char buff[], size_t size) {
   File file = SPIFFS.open(fileName, "r");
   file.readBytes(buff, size);
   file.close();
+}
+
+void MQTTModule::connectBroker() {
+  if (_mqttNextConnAtte <= millis()) {
+    _mqttNextConnAtte = millis() + MQTT_BROKER_CONNECTION_RETRY;
+    debug(F("Connecting MQTT broker as"), getStationName());
+    if (_mqttClient.connect(getStationName())) {
+      debug(F("MQTT broker Connected"));
+      if (_mqttConnectionCallback) {
+        _mqttConnectionCallback();
+      }
+    } else {
+      debug(F("Failed. RC:"), _mqttClient.state());
+    }
+  }
 }
 
 bool MQTTModule::loadConfig () {
@@ -170,9 +226,19 @@ void MQTTModule::saveConfig () {
 char name[15];
 
 /* Primitives */
-char* MQTTModule::getStationName () {
-  String("ESP-generic").toCharArray(name, 15);
-  return name;
+const char* MQTTModule::getStationName () {
+  // if (strlen(_stationName) <= 0) {
+  //   size_t size = strlen(_moduleType) + strlen(getModuleLocation()) + strlen(getModuleName()) + 4;
+  //   String sn;
+  //   sn.concat(_moduleType);
+  //   sn.concat("_");
+  //   sn.concat(getModuleLocation()); 
+  //   sn.concat("_");
+  //   sn.concat(getModuleName());
+  //   sn.toCharArray(_stationName, size);
+  // } 
+  // return _stationName;
+  return "pepestation";
 }
 
 template <class T> void MQTTModule::debug (T text) {
