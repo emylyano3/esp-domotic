@@ -16,6 +16,10 @@
 #define WIFI_CONNECT_TIMEOUT 5000
 #endif
 
+#ifndef MQTT_BROKER_CONNECT_RETRY
+#define MQTT_BROKER_CONNECT_RETRY 5000
+#endif
+
 /*
 Provides this functionality:
 > HTTP update
@@ -37,6 +41,8 @@ class MQTTModule {
 
         void    setModuleType(const char* mt);
         
+        void    setDebugOutput(bool debug);
+
         /* Setting methods */
         // Sets the callback to be called just after the connection to mqtt broker has been stablished
         void    setMqttConnectionCallback(std::function<void()> callback);
@@ -78,7 +84,6 @@ class MQTTModule {
         void            connectBroker();
         bool            loadConfig();
         void            saveConfig();
-        const char*     getStationName();
 
         /* Logging */
         template <class T> void             debug(T text);

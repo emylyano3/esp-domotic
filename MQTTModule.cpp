@@ -89,6 +89,10 @@ void MQTTModule::setModuleType (const char* mt) {
   _moduleType = mt;
 }
 
+void MQTTModule::setDebugOutput(bool debug) {
+  _debug = debug;
+}
+
 void MQTTModule::setMqttConnectionCallback(std::function<void()> callback) {
     _mqttConnectionCallback = callback;
 }
@@ -176,7 +180,7 @@ void MQTTModule::loadFile (const char* fileName, char buff[], size_t size) {
 
 void MQTTModule::connectBroker() {
   if (_mqttNextConnAtte <= millis()) {
-    _mqttNextConnAtte = millis() + MQTT_BROKER_CONNECTION_RETRY;
+    _mqttNextConnAtte = millis() + MQTT_BROKER_CONNECT_RETRY;
     debug(F("Connecting MQTT broker as"), getStationName());
     if (_mqttClient.connect(getStationName())) {
       debug(F("MQTT broker Connected"));
