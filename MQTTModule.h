@@ -34,7 +34,6 @@ class MQTTModule {
 
     private:
         bool _debug = true;
-        
 
         /* Utils */
         bool        loadConfig();

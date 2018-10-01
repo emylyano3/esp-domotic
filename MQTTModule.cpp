@@ -1,13 +1,21 @@
 #include <FS.h>
 #include <MQTTModule.h>
 #include <ESPConfig.h>
+
+#include <ESP8266mDNS.h>
+#include <ESP8266WebServer.h>
+#include <ESP8266HTTPUpdateServer.h>
+
 #include <ArduinoJson.h>
 
 /* Config params */
-ESPConfigParam          _mqttPort (Text, "mqttPort", "MQTT port", "", 6, "required");            // port range is from 0 to 65535
-ESPConfigParam          _mqttHost (Text, "mqttHost", "MQTT host", "", PARAM_LENGTH, "required"); // IP max length is 15 chars
-ESPConfigParam          _moduleName (Text, "moduleName", "Module name", "", PARAM_LENGTH, "required");
-ESPConfigParam          _moduleLocation (Text, "moduleLocation", "Module location", "", PARAM_LENGTH, "required");
+ESPConfigParam            _mqttPort (Text, "mqttPort", "MQTT port", "", 6, "required");            // port range is from 0 to 65535
+ESPConfigParam            _mqttHost (Text, "mqttHost", "MQTT host", "", PARAM_LENGTH, "required"); // IP max length is 15 chars
+ESPConfigParam            _moduleName (Text, "moduleName", "Module name", "", PARAM_LENGTH, "required");
+ESPConfigParam            _moduleLocation (Text, "moduleLocation", "Module location", "", PARAM_LENGTH, "required");
+
+ESP8266WebServer          _httpServer(80);
+ESP8266HTTPUpdateServer   _httpUpdater;
 
 MQTTModule::MQTTModule() {
 }
@@ -17,30 +25,39 @@ MQTTModule::~MQTTModule() {
 }
 
 void MQTTModule::init() {
-    Serial.println("MQTT Module INIT");
-    /* Wifi connection */
-    ESPConfig _moduleConfig;
-    _moduleConfig.addParameter(&_moduleLocation);
-    _moduleConfig.addParameter(&_moduleName);
-    _moduleConfig.addParameter(&_mqttHost);
-    _moduleConfig.addParameter(&_mqttPort);
-    _moduleConfig.setConnectionTimeout(5000);
-    _moduleConfig.setPortalSSID("ESP-Irrigation");
-    _moduleConfig.setMinimumSignalQuality(30);
-    _moduleConfig.setStationNameCallback(std::bind(&MQTTModule::getStationName, this));
-    _moduleConfig.setSaveConfigCallback(std::bind(&MQTTModule::saveConfig, this));
-    // if (_feedbackPin != INVALID_PIN_NO) {
-    //   _moduleConfig.setFeedbackPin(_feedbackPin);
-    // }
-    _moduleConfig.connectWifiNetwork(loadConfig());
-    // if (_feedbackPin != INVALID_PIN_NO) {
-    //   _moduleConfig.blockingFeedback(_feedbackPin, 100, 8);
-    // }
-    Serial.println("Connected to wifi....");
+  Serial.println("MQTT Module INIT");
+  /* Wifi connection */
+  ESPConfig _moduleConfig;
+  _moduleConfig.addParameter(&_moduleLocation);
+  _moduleConfig.addParameter(&_moduleName);
+  _moduleConfig.addParameter(&_mqttHost);
+  _moduleConfig.addParameter(&_mqttPort);
+  _moduleConfig.setConnectionTimeout(5000);
+  _moduleConfig.setPortalSSID("ESP-Irrigation");
+  _moduleConfig.setMinimumSignalQuality(30);
+  _moduleConfig.setStationNameCallback(std::bind(&MQTTModule::getStationName, this));
+  _moduleConfig.setSaveConfigCallback(std::bind(&MQTTModule::saveConfig, this));
+  // if (_feedbackPin != INVALID_PIN_NO) {
+  //   _moduleConfig.setFeedbackPin(_feedbackPin);
+  // }
+  _moduleConfig.connectWifiNetwork(loadConfig());
+  // if (_feedbackPin != INVALID_PIN_NO) {
+  //   _moduleConfig.blockingFeedback(_feedbackPin, 100, 8);
+  // }
+  Serial.println("Connected to wifi....");
+    WiFi.disconnect();
+  debug(F("Setting OTA update"));
+  MDNS.begin(getStationName());
+  MDNS.addService("http", "tcp", 80);
+  _httpUpdater.setup(&_httpServer);
+  _httpServer.begin();
+  debug(F("HTTPUpdateServer ready.")); 
+  debug("Open http://" + String(getStationName()) + ".local/update");
+  debug("Open http://" + WiFi.localIP().toString() + "/update");
 }
 
 void MQTTModule::loop() {
-  Serial.println("MQTT Module loop");
+  _httpServer.handleClient();
 }
 
 uint16_t MQTTModule::getMqttServerPort() {
