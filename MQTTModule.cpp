@@ -45,18 +45,18 @@ void MQTTModule::init() {
   _moduleConfig.addParameter(&_moduleName);
   _moduleConfig.addParameter(&_mqttHost);
   _moduleConfig.addParameter(&_mqttPort);
-  _moduleConfig.setConnectionTimeout(5000);
+  _moduleConfig.setConnectionTimeout(WIFI_CONNECT_TIMEOUT);
   _moduleConfig.setPortalSSID("ESP-Irrigation");
-  _moduleConfig.setMinimumSignalQuality(30);
+  _moduleConfig.setMinimumSignalQuality(MIN_SIGNAL_QUALITY);
   _moduleConfig.setStationNameCallback(std::bind(&MQTTModule::getStationName, this));
   _moduleConfig.setSaveConfigCallback(std::bind(&MQTTModule::saveConfig, this));
-  // if (_feedbackPin != INVALID_PIN_NO) {
-  //   _moduleConfig.setFeedbackPin(_feedbackPin);
-  // }
+  if (_feedbackPin != INVALID_PIN_NO) {
+    _moduleConfig.setFeedbackPin(_feedbackPin);
+  }
   _moduleConfig.connectWifiNetwork(loadConfig());
-  // if (_feedbackPin != INVALID_PIN_NO) {
-  //   _moduleConfig.blockingFeedback(_feedbackPin, 100, 8);
-  // }
+  if (_feedbackPin != INVALID_PIN_NO) {
+    _moduleConfig.blockingFeedback(_feedbackPin, 100, 8);
+  }
   Serial.println("Connected to wifi....");
   // MQTT Server config
   debug(F("Configuring MQTT broker"));
@@ -97,6 +97,10 @@ void MQTTModule::setMqttMessageCallback(std::function<void(char*, uint8_t*, unsi
   _mqttMessageCallback = callback;
 }
 
+void MQTTModule::setFeedbackPin(uint8_t fp) {
+  _feedbackPin = fp;
+}
+
 uint16_t MQTTModule::getMqttServerPort() {
   return (uint16_t) String(_mqttPort.getValue()).toInt();
 }
@@ -111,6 +115,22 @@ const char* MQTTModule::getModuleName() {
 
 const char* MQTTModule::getModuleLocation() {
   return _moduleLocation.getValue();
+}
+
+/* Primitives */
+const char* MQTTModule::getStationName () {
+  // if (strlen(_stationName) <= 0) {
+  //   size_t size = strlen(_moduleType) + strlen(getModuleLocation()) + strlen(getModuleName()) + 4;
+  //   String sn;
+  //   sn.concat(_moduleType);
+  //   sn.concat("_");
+  //   sn.concat(getModuleLocation()); 
+  //   sn.concat("_");
+  //   sn.concat(getModuleName());
+  //   sn.toCharArray(_stationName, size);
+  // } 
+  // return _stationName;
+  return "pepestation";
 }
 
 PubSubClient* MQTTModule::getMqttClient() {
@@ -221,24 +241,6 @@ void MQTTModule::saveConfig () {
   } else {
     debug(F("Failed to open config file for writing"));
   }
-}
-
-char name[15];
-
-/* Primitives */
-const char* MQTTModule::getStationName () {
-  // if (strlen(_stationName) <= 0) {
-  //   size_t size = strlen(_moduleType) + strlen(getModuleLocation()) + strlen(getModuleName()) + 4;
-  //   String sn;
-  //   sn.concat(_moduleType);
-  //   sn.concat("_");
-  //   sn.concat(getModuleLocation()); 
-  //   sn.concat("_");
-  //   sn.concat(getModuleName());
-  //   sn.toCharArray(_stationName, size);
-  // } 
-  // return _stationName;
-  return "pepestation";
 }
 
 template <class T> void MQTTModule::debug (T text) {

@@ -4,6 +4,18 @@
 #include <Arduino.h>
 #include <PubSubClient.h>
 
+#ifndef INVALID_PIN_NO
+#define INVALID_PIN_NO 255
+#endif
+
+#ifndef MIN_SIGNAL_QUALITY
+#define MIN_SIGNAL_QUALITY 30
+#endif
+
+#ifndef WIFI_CONNECT_TIMEOUT
+#define WIFI_CONNECT_TIMEOUT 5000
+#endif
+
 /*
 Provides this functionality:
 > HTTP update
@@ -26,23 +38,37 @@ class MQTTModule {
         void    setModuleType(const char* mt);
         
         /* Setting methods */
+        // Sets the callback to be called just after the connection to mqtt broker has been stablished
         void    setMqttConnectionCallback(std::function<void()> callback);
+        // Sets the callback used to tell that a message was received via mqtt
         void    setMqttMessageCallback(std::function<void(char*, uint8_t*, unsigned int)> callback);
+        // Sets the pin through wich signal feedback is given to the user (a speaker, led, etc)
+        void    setFeedbackPin(uint8_t fp);
 
         /* Conf getters */
-        uint16_t        getMqttServerPort();
+        // Returns the mqtt host the user configured
         const char*     getMqttServerHost();
+        // Returns the mqtt port the user configured
+        uint16_t        getMqttServerPort();
+        // Returns the name the user gave to the module during configuration
         const char*     getModuleName();
+        // Returns the location name the user gave to the module during configuration
         const char*     getModuleLocation();
+        // Returns the name wich the module is subscribed to the AP
+        const char*     getStationName();
+        // Returns the inner mqtt client
         PubSubClient*   getMqttClient();
 
         /* Utils */
-        void    loadFile (const char* fileName, char buff[], size_t size);
+        // Returns the size of a file
         size_t  getFileSize (const char* fileName);
+        // Loads a file into the buffer.
+        void    loadFile (const char* fileName, char buff[], size_t size);
 
     private:
-        bool        _debug      = true;
-        const char* _moduleType;
+        bool        _debug          = true;
+        const char* _moduleType     = "";
+        uint8_t     _feedbackPin    = INVALID_PIN_NO;
 
         /* Mqtt callbacks */
         std::function<void()>                               _mqttConnectionCallback;
