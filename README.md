@@ -1,4 +1,4 @@
-# MQTT Generic Module
+# Generic ESP Module for Domotics
 
 To compile project in PlatformIO:
 

@@ -1,5 +1,5 @@
 #include <FS.h>
-#include <MQTTModule.h>
+#include <ESPDomotic.h>
 #include <ESPConfig.h>
 
 #include <ESP8266mDNS.h>
@@ -30,14 +30,14 @@ unsigned long             _mqttNextConnAtte     = 0;
 
 char                      _stationName[PARAM_LENGTH * 3 + 4];
 
-MQTTModule::MQTTModule() {
+ESPDomotic::ESPDomotic() {
 }
 
-MQTTModule::~MQTTModule() {
+ESPDomotic::~ESPDomotic() {
 
 }
 
-void MQTTModule::init() {
+void ESPDomotic::init() {
   debug("MQTT Module INIT");
   /* Wifi connection */
   ESPConfig _moduleConfig;
@@ -53,8 +53,8 @@ void MQTTModule::init() {
     _moduleConfig.setPortalSSID(ssid.c_str());
   }
   _moduleConfig.setMinimumSignalQuality(MIN_SIGNAL_QUALITY);
-  _moduleConfig.setStationNameCallback(std::bind(&MQTTModule::getStationName, this));
-  _moduleConfig.setSaveConfigCallback(std::bind(&MQTTModule::saveConfig, this));
+  _moduleConfig.setStationNameCallback(std::bind(&ESPDomotic::getStationName, this));
+  _moduleConfig.setSaveConfigCallback(std::bind(&ESPDomotic::saveConfig, this));
   if (_feedbackPin != INVALID_PIN_NO) {
     _moduleConfig.setFeedbackPin(_feedbackPin);
   }
@@ -82,7 +82,7 @@ void MQTTModule::init() {
   debug("Open http://" + WiFi.localIP().toString() + "/update");
 }
 
-void MQTTModule::loop() {
+void ESPDomotic::loop() {
   _httpServer.handleClient();
   if (!_mqttClient.connected()) {
     connectBroker();
@@ -90,47 +90,47 @@ void MQTTModule::loop() {
   _mqttClient.loop();
 }
 
-void MQTTModule::setDebugOutput(bool debug) {
+void ESPDomotic::setDebugOutput(bool debug) {
   _debug = debug;
 }
 
-void MQTTModule::setMqttConnectionCallback(std::function<void()> callback) {
+void ESPDomotic::setMqttConnectionCallback(std::function<void()> callback) {
     _mqttConnectionCallback = callback;
 }
 
-void MQTTModule::setMqttMessageCallback(std::function<void(char*, uint8_t*, unsigned int)> callback) {
+void ESPDomotic::setMqttMessageCallback(std::function<void(char*, uint8_t*, unsigned int)> callback) {
   _mqttMessageCallback = callback;
 }
 
-void MQTTModule::setFeedbackPin(uint8_t fp) {
+void ESPDomotic::setFeedbackPin(uint8_t fp) {
   _feedbackPin = fp;
 }
 
-void MQTTModule::setModuleType(const char* type) {
+void ESPDomotic::setModuleType(const char* type) {
   _moduleType = type;
 }
 
-void MQTTModule::setPortalSSID (const char* ssid) {
+void ESPDomotic::setPortalSSID (const char* ssid) {
   _apSSID = ssid;
 }
 
-uint16_t MQTTModule::getMqttServerPort() {
+uint16_t ESPDomotic::getMqttServerPort() {
   return (uint16_t) String(_mqttPort.getValue()).toInt();
 }
 
-const char* MQTTModule::getMqttServerHost() {
+const char* ESPDomotic::getMqttServerHost() {
   return _mqttHost.getValue();
 }
 
-const char* MQTTModule::getModuleName() {
+const char* ESPDomotic::getModuleName() {
   return _moduleName.getValue();
 }
 
-const char* MQTTModule::getModuleLocation() {
+const char* ESPDomotic::getModuleLocation() {
   return _moduleLocation.getValue();
 }
 
-const char* MQTTModule::getStationName () {
+const char* ESPDomotic::getStationName () {
   if (strlen(_stationName) <= 0) {
     size_t size = strlen(_moduleType) + strlen(getModuleLocation()) + strlen(getModuleName()) + 4;
     String sn;
@@ -144,7 +144,7 @@ const char* MQTTModule::getStationName () {
   return _stationName;
 }
 
-PubSubClient* MQTTModule::getMqttClient() {
+PubSubClient* ESPDomotic::getMqttClient() {
   return &_mqttClient;
 }
 
@@ -158,7 +158,7 @@ PubSubClient* MQTTModule::getMqttClient() {
   the value returned is 0.
   Otherwise the size of the file is returned.
 */
-size_t MQTTModule::getFileSize (const char* fileName) {
+size_t ESPDomotic::getFileSize (const char* fileName) {
   if (SPIFFS.begin()) {
     if (SPIFFS.exists(fileName)) {
       File file = SPIFFS.open(fileName, "r");
@@ -179,13 +179,13 @@ size_t MQTTModule::getFileSize (const char* fileName) {
   return 0;
 }
 
-void MQTTModule::loadFile (const char* fileName, char buff[], size_t size) {
+void ESPDomotic::loadFile (const char* fileName, char buff[], size_t size) {
   File file = SPIFFS.open(fileName, "r");
   file.readBytes(buff, size);
   file.close();
 }
 
-void MQTTModule::connectBroker() {
+void ESPDomotic::connectBroker() {
   if (_mqttNextConnAtte <= millis()) {
     _mqttNextConnAtte = millis() + MQTT_BROKER_CONNECT_RETRY;
     debug(F("Connecting MQTT broker as"), getStationName());
@@ -200,7 +200,7 @@ void MQTTModule::connectBroker() {
   }
 }
 
-bool MQTTModule::loadConfig () {
+bool ESPDomotic::loadConfig () {
   size_t size = getFileSize("/config.json");
   if (size > 0) {
     char buff[size];
@@ -229,7 +229,7 @@ bool MQTTModule::loadConfig () {
 }
 
 /** callback notifying the need to save config */
-void MQTTModule::saveConfig () {
+void ESPDomotic::saveConfig () {
   File file = SPIFFS.open("/config.json", "w");
   if (file) {
     DynamicJsonBuffer jsonBuffer;
@@ -254,14 +254,14 @@ void MQTTModule::saveConfig () {
   }
 }
 
-template <class T> void MQTTModule::debug (T text) {
+template <class T> void ESPDomotic::debug (T text) {
   if (_debug) {
     Serial.print("*MM: ");
     Serial.println(text);
   }
 }
 
-template <class T, class U> void MQTTModule::debug (T key, U value) {
+template <class T, class U> void ESPDomotic::debug (T key, U value) {
   if (_debug) {
     Serial.print("*MM: ");
     Serial.print(key);

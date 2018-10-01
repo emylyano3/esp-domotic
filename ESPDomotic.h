@@ -1,5 +1,5 @@
-#ifndef MQTTModule_h
-#define MQTTModule_h
+#ifndef ESPDomotic_h
+#define ESPDomotic_h
 
 #include <Arduino.h>
 #include <PubSubClient.h>
@@ -27,10 +27,10 @@ Provides this functionality:
 > WIFI and module configuration 
 > Configuration persistence & loading
 */
-class MQTTModule {
+class ESPDomotic {
     public:
-        MQTTModule();
-        ~MQTTModule();
+        ESPDomotic();
+        ~ESPDomotic();
 
         /* Main methods */
         // Must be called when all setup is done
