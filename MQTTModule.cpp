@@ -38,7 +38,7 @@ MQTTModule::~MQTTModule() {
 }
 
 void MQTTModule::init() {
-  Serial.println("MQTT Module INIT");
+  debug("MQTT Module INIT");
   /* Wifi connection */
   ESPConfig _moduleConfig;
   _moduleConfig.addParameter(&_moduleLocation);
@@ -46,7 +46,12 @@ void MQTTModule::init() {
   _moduleConfig.addParameter(&_mqttHost);
   _moduleConfig.addParameter(&_mqttPort);
   _moduleConfig.setConnectionTimeout(WIFI_CONNECT_TIMEOUT);
-  _moduleConfig.setPortalSSID("ESP-Irrigation");
+  if (_apSSID) {
+    _moduleConfig.setPortalSSID(_apSSID);
+  } else {
+    String ssid = "Proeza domotic " + String(ESP.getChipId());
+    _moduleConfig.setPortalSSID(ssid.c_str());
+  }
   _moduleConfig.setMinimumSignalQuality(MIN_SIGNAL_QUALITY);
   _moduleConfig.setStationNameCallback(std::bind(&MQTTModule::getStationName, this));
   _moduleConfig.setSaveConfigCallback(std::bind(&MQTTModule::saveConfig, this));
@@ -57,7 +62,7 @@ void MQTTModule::init() {
   if (_feedbackPin != INVALID_PIN_NO) {
     _moduleConfig.blockingFeedback(_feedbackPin, 100, 8);
   }
-  Serial.println("Connected to wifi....");
+  debug("Connected to wifi....");
   // MQTT Server config
   debug(F("Configuring MQTT broker"));
   debug(F("Port"), getMqttServerPort());
@@ -85,10 +90,6 @@ void MQTTModule::loop() {
   _mqttClient.loop();
 }
 
-void MQTTModule::setModuleType (const char* mt) {
-  _moduleType = mt;
-}
-
 void MQTTModule::setDebugOutput(bool debug) {
   _debug = debug;
 }
@@ -103,6 +104,14 @@ void MQTTModule::setMqttMessageCallback(std::function<void(char*, uint8_t*, unsi
 
 void MQTTModule::setFeedbackPin(uint8_t fp) {
   _feedbackPin = fp;
+}
+
+void MQTTModule::setModuleType(const char* type) {
+  _moduleType = type;
+}
+
+void MQTTModule::setPortalSSID (const char* ssid) {
+  _apSSID = ssid;
 }
 
 uint16_t MQTTModule::getMqttServerPort() {
@@ -121,20 +130,18 @@ const char* MQTTModule::getModuleLocation() {
   return _moduleLocation.getValue();
 }
 
-/* Primitives */
 const char* MQTTModule::getStationName () {
-  // if (strlen(_stationName) <= 0) {
-  //   size_t size = strlen(_moduleType) + strlen(getModuleLocation()) + strlen(getModuleName()) + 4;
-  //   String sn;
-  //   sn.concat(_moduleType);
-  //   sn.concat("_");
-  //   sn.concat(getModuleLocation()); 
-  //   sn.concat("_");
-  //   sn.concat(getModuleName());
-  //   sn.toCharArray(_stationName, size);
-  // } 
-  // return _stationName;
-  return "pepestation";
+  if (strlen(_stationName) <= 0) {
+    size_t size = strlen(_moduleType) + strlen(getModuleLocation()) + strlen(getModuleName()) + 4;
+    String sn;
+    sn.concat(_moduleType);
+    sn.concat("_");
+    sn.concat(getModuleLocation()); 
+    sn.concat("_");
+    sn.concat(getModuleName());
+    sn.toCharArray(_stationName, size);
+  } 
+  return _stationName;
 }
 
 PubSubClient* MQTTModule::getMqttClient() {

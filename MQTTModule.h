@@ -38,9 +38,9 @@ class MQTTModule {
         
         // Must be called inside main loop
         void    loop();
-
+        // Sets what type of module is it
         void    setModuleType(const char* mt);
-        
+        // Enables/Disables debugging
         void    setDebugOutput(bool debug);
 
         /* Setting methods */
@@ -50,6 +50,8 @@ class MQTTModule {
         void    setMqttMessageCallback(std::function<void(char*, uint8_t*, unsigned int)> callback);
         // Sets the pin through wich signal feedback is given to the user (a speaker, led, etc)
         void    setFeedbackPin(uint8_t fp);
+        // Sets the SSID for the configuration portal (When module enters in AP mode)
+        void    setPortalSSID(const char* ssid);
 
         /* Conf getters */
         // Returns the mqtt host the user configured
@@ -72,9 +74,10 @@ class MQTTModule {
         void    loadFile (const char* fileName, char buff[], size_t size);
 
     private:
-        bool        _debug          = true;
-        const char* _moduleType     = "";
-        uint8_t     _feedbackPin    = INVALID_PIN_NO;
+        bool            _debug          = true;
+        const char*     _moduleType     = "generic";
+        const char*     _apSSID         = NULL;
+        uint8_t         _feedbackPin    = INVALID_PIN_NO;
 
         /* Mqtt callbacks */
         std::function<void()>                               _mqttConnectionCallback;
