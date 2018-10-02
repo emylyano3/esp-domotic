@@ -1,4 +1,4 @@
-# Generic ESP module for domotic projects [![Build Status](https://travis-ci.org/emylyano3/esp-domotic.svg?branch=master)](https://travis-ci.org/emylyano3/esp-domotic)
+# Generic ESP lib for domotic projects [![Build Status](https://travis-ci.org/emylyano3/esp-domotic.svg?branch=master)](https://travis-ci.org/emylyano3/esp-domotic)
 
 This lib gives an abstraction to other ESP libs going out there that (in my personal experiencie) are repeatedly used over different projects related to home automation (domotics).
 
