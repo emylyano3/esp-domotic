@@ -31,4 +31,4 @@ install:
     - pip install -U platformio
 
 script:
-    - platformio ci --lib="." --board=nodemcu
+    - platformio ci --lib="." --board=nodemcu --project-conf .\project-conf\platformio.ini
