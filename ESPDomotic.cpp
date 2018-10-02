@@ -8,10 +8,6 @@
 
 #include <ArduinoJson.h>
 
-#ifndef PARAM_LENGTH
-#define PARAM_LENGTH 16
-#endif
-
 /* Config params */
 ESPConfigParam            _mqttPort (Text, "mqttPort", "MQTT port", "", 6, "required");            // port range is from 0 to 65535
 ESPConfigParam            _mqttHost (Text, "mqttHost", "MQTT host", "", PARAM_LENGTH, "required"); // IP max length is 15 chars
@@ -30,12 +26,9 @@ unsigned long             _mqttNextConnAtte     = 0;
 
 char                      _stationName[PARAM_LENGTH * 3 + 4];
 
-ESPDomotic::ESPDomotic() {
-}
+ESPDomotic::ESPDomotic() {}
 
-ESPDomotic::~ESPDomotic() {
-
-}
+ESPDomotic::~ESPDomotic() {}
 
 void ESPDomotic::init() {
   debug("MQTT Module INIT");
@@ -180,9 +173,22 @@ size_t ESPDomotic::getFileSize (const char* fileName) {
 }
 
 void ESPDomotic::loadFile (const char* fileName, char buff[], size_t size) {
-  File file = SPIFFS.open(fileName, "r");
-  file.readBytes(buff, size);
-  file.close();
+  if (SPIFFS.begin()) {
+    if (SPIFFS.exists(fileName)) {
+      File file = SPIFFS.open(fileName, "r");
+      if (file) {
+        file.readBytes(buff, size);
+        file.close();
+      } else {
+        file.close();
+        debug(F("Cant open file"), fileName);
+      }
+    } else {
+      debug(F("File not found"), fileName);
+    }
+  } else {
+    debug(F("Failed to mount FS"));
+  }
 }
 
 void ESPDomotic::connectBroker() {

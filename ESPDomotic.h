@@ -20,6 +20,10 @@
 #define MQTT_BROKER_CONNECT_RETRY 5000
 #endif
 
+#ifndef PARAM_LENGTH
+#define PARAM_LENGTH 16
+#endif
+
 /*
 Provides this functionality:
 > HTTP update
