@@ -9,10 +9,10 @@
 #include <ArduinoJson.h>
 
 /* Config params */
-ESPConfigParam            _mqttPort (Text, "mqttPort", "MQTT port", "", 6, "required");            // port range is from 0 to 65535
-ESPConfigParam            _mqttHost (Text, "mqttHost", "MQTT host", "", PARAM_LENGTH, "required"); // IP max length is 15 chars
-ESPConfigParam            _moduleName (Text, "moduleName", "Module name", "", PARAM_LENGTH, "required");
-ESPConfigParam            _moduleLocation (Text, "moduleLocation", "Module location", "", PARAM_LENGTH, "required");
+ESPConfigParam            _mqttPort (Text, "mqttPort", "MQTT port", "", _paramPortValueLength, "required");
+ESPConfigParam            _mqttHost (Text, "mqttHost", "MQTT host", "", _paramIPValueLength, "required");
+ESPConfigParam            _moduleName (Text, "moduleName", "Module name", "", _paramValueMaxLength, "required");
+ESPConfigParam            _moduleLocation (Text, "moduleLocation", "Module location", "", _paramValueMaxLength, "required");
 
 /* HTTP Update */
 ESP8266WebServer          _httpServer(80);
@@ -24,7 +24,7 @@ PubSubClient              _mqttClient(_wifiClient);
 /* MQTT broker reconnection control */
 unsigned long             _mqttNextConnAtte     = 0;
 
-char                      _stationName[PARAM_LENGTH * 3 + 4];
+char                      _stationName[_paramValueMaxLength * 3 + 4];
 
 ESPDomotic::ESPDomotic() {}
 
@@ -38,21 +38,21 @@ void ESPDomotic::init() {
   _moduleConfig.addParameter(&_moduleName);
   _moduleConfig.addParameter(&_mqttHost);
   _moduleConfig.addParameter(&_mqttPort);
-  _moduleConfig.setConnectionTimeout(WIFI_CONNECT_TIMEOUT);
+  _moduleConfig.setConnectionTimeout(_wifiConnectTimeout);
   if (_apSSID) {
     _moduleConfig.setPortalSSID(_apSSID);
   } else {
     String ssid = "Proeza domotic " + String(ESP.getChipId());
     _moduleConfig.setPortalSSID(ssid.c_str());
   }
-  _moduleConfig.setMinimumSignalQuality(MIN_SIGNAL_QUALITY);
+  _moduleConfig.setMinimumSignalQuality(_wifiMinSignalQuality);
   _moduleConfig.setStationNameCallback(std::bind(&ESPDomotic::getStationName, this));
   _moduleConfig.setSaveConfigCallback(std::bind(&ESPDomotic::saveConfig, this));
-  if (_feedbackPin != INVALID_PIN_NO) {
+  if (_feedbackPin != _invalidPinNo) {
     _moduleConfig.setFeedbackPin(_feedbackPin);
   }
   _moduleConfig.connectWifiNetwork(loadConfig());
-  if (_feedbackPin != INVALID_PIN_NO) {
+  if (_feedbackPin != _invalidPinNo) {
     _moduleConfig.blockingFeedback(_feedbackPin, 100, 8);
   }
   debug("Connected to wifi....");
@@ -193,7 +193,7 @@ void ESPDomotic::loadFile (const char* fileName, char buff[], size_t size) {
 
 void ESPDomotic::connectBroker() {
   if (_mqttNextConnAtte <= millis()) {
-    _mqttNextConnAtte = millis() + MQTT_BROKER_CONNECT_RETRY;
+    _mqttNextConnAtte = millis() + _mqttBrokerReconnectionRetry;
     debug(F("Connecting MQTT broker as"), getStationName());
     if (_mqttClient.connect(getStationName())) {
       debug(F("MQTT broker Connected"));
@@ -274,4 +274,30 @@ template <class T, class U> void ESPDomotic::debug (T key, U value) {
     Serial.print(": ");
     Serial.println(value);
   }
+}
+
+Channel::Channel(const char* id, const char* name, uint8_t pin, uint8_t state, uint16_t timer) {
+  this->id = id;
+  this->pin = pin;
+  this->state = state;
+  this->timer = timer;
+  this->enabled = true;
+  this->name = new char[_channelNameMaxLength + 1];
+  updateName(name);
+}
+
+// void Channel::setTimer (unsigned long timer) {
+//   this->timer = timer;
+// }
+
+// unsigned long Channel::getTimer () {
+//   return this->timer;
+// }
+
+void Channel::updateName (const char *v) {
+  String(v).toCharArray(this->name, _channelNameMaxLength);
+}
+
+bool Channel::isEnabled () {
+  return this->enabled && this->name != NULL && strlen(this->name) > 0;
 }

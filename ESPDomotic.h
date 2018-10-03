@@ -4,25 +4,14 @@
 #include <Arduino.h>
 #include <PubSubClient.h>
 
-#ifndef INVALID_PIN_NO
-#define INVALID_PIN_NO 255
-#endif
-
-#ifndef MIN_SIGNAL_QUALITY
-#define MIN_SIGNAL_QUALITY 30
-#endif
-
-#ifndef WIFI_CONNECT_TIMEOUT
-#define WIFI_CONNECT_TIMEOUT 5000
-#endif
-
-#ifndef MQTT_BROKER_CONNECT_RETRY
-#define MQTT_BROKER_CONNECT_RETRY 5000
-#endif
-
-#ifndef PARAM_LENGTH
-#define PARAM_LENGTH 16
-#endif
+const uint8_t         _invalidPinNo                   = 255;
+const unsigned long   _wifiConnectTimeout             = 5000;
+const unsigned long   _mqttBrokerReconnectionRetry    = 5000;
+const uint8_t         _wifiMinSignalQuality           = 30;
+const uint8_t         _channelNameMaxLength           = 20;
+const uint8_t         _paramValueMaxLength            = 20;
+const uint8_t         _paramIPValueLength             = 16;   // IP max length is 15 chars
+const uint8_t         _paramPortValueLength           = 6;    // port range is from 0 to 65535
 
 /*
 Provides this functionality:
@@ -81,7 +70,7 @@ class ESPDomotic {
         bool            _debug          = true;
         const char*     _moduleType     = "generic";
         const char*     _apSSID         = NULL;
-        uint8_t         _feedbackPin    = INVALID_PIN_NO;
+        uint8_t         _feedbackPin    = _invalidPinNo;
 
         /* Mqtt callbacks */
         std::function<void()>                               _mqttConnectionCallback;
@@ -95,5 +84,22 @@ class ESPDomotic {
         /* Logging */
         template <class T> void             debug(T text);
         template <class T, class U> void    debug(T key, U value);
+};
+
+class Channel {
+    public:
+        Channel(const char* id, const char* name, uint8_t pin, uint8_t state, uint16_t timer);
+        const char*   id;
+        char*         name;
+        uint8_t       pin;
+        char          state;
+        bool          enabled;
+        unsigned long timer;
+        unsigned long timerControl; 
+
+        // void    setTimer (unsigned long t);
+        // unsigned long     getTimer ();
+        void    updateName (const char *v);
+        bool    isEnabled ();
 };
 #endif
