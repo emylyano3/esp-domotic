@@ -26,12 +26,17 @@ unsigned long             _mqttNextConnAtte     = 0;
 
 char                      _stationName[_paramValueMaxLength * 3 + 4];
 
-ESPDomotic::ESPDomotic() {}
+const uint8_t _channelsMax    = 5;
+uint8_t       _channelsCount  = 0;
+
+ESPDomotic::ESPDomotic() {
+  _channels = (Channel**)malloc(_channelsMax * sizeof(Channel*));
+}
 
 ESPDomotic::~ESPDomotic() {}
 
 void ESPDomotic::init() {
-  debug("MQTT Module INIT");
+  debug(F("ESP Domotic module INIT"));
   /* Wifi connection */
   ESPConfig _moduleConfig;
   _moduleConfig.addParameter(&_moduleLocation);
@@ -55,7 +60,7 @@ void ESPDomotic::init() {
   if (_feedbackPin != _invalidPinNo) {
     _moduleConfig.blockingFeedback(_feedbackPin, 100, 8);
   }
-  debug("Connected to wifi....");
+  debug(F("Connected to wifi...."));
   // MQTT Server config
   debug(F("Configuring MQTT broker"));
   debug(F("Port"), getMqttServerPort());
@@ -64,6 +69,7 @@ void ESPDomotic::init() {
   if (_mqttMessageCallback) {
     _mqttClient.setCallback(_mqttMessageCallback);
   }
+  loadChannelsSettings();
   // OTA Update
   debug(F("Setting OTA update"));
   MDNS.begin(getStationName());
@@ -105,6 +111,26 @@ void ESPDomotic::setModuleType(const char* type) {
 
 void ESPDomotic::setPortalSSID (const char* ssid) {
   _apSSID = ssid;
+}
+
+void ESPDomotic::addChannel(Channel *c) {
+  if (_channelsCount < _channelsMax) {
+    _channels[_channelsCount++] = c;
+  } else {
+    debug(F("No more channels suported"));
+  }
+}
+
+Channel *ESPDomotic::getChannel(uint8_t i) {
+  if (i <= _channelsCount) {
+    return _channels[i];
+  } else {
+    return NULL;
+  }
+}
+
+uint8_t ESPDomotic::getChannelsCount() {
+  return _channelsCount;
 }
 
 uint16_t ESPDomotic::getMqttServerPort() {
@@ -260,6 +286,40 @@ void ESPDomotic::saveConfig () {
   }
 }
 
+bool ESPDomotic::loadChannelsSettings () {
+  if (_channelsCount > 0) {
+    size_t size = getFileSize("/settings.json");
+    if (size > 0) {
+      char buff[size];
+      loadFile("/settings.json", buff, size);
+      DynamicJsonBuffer jsonBuffer;
+      JsonObject& json = jsonBuffer.parseObject(buff);
+      if (_debug) {
+        json.printTo(Serial);
+        Serial.println();
+      }
+      if (json.success()) {
+        for (uint8_t i = 0; i < _channelsCount; ++i) {
+          _channels[i]->updateName(json[String(_channels[i]->id) + "_name"]);
+          _channels[i]->timer = json[String(_channels[i]->id) + "_timer"];
+          _channels[i]->enabled = json[String(_channels[i]->id) + "_enabled"];
+          if (_debug) {
+            debug(F("Channel id"), _channels[i]->id);
+            debug(F("Channel name"), _channels[i]->name);
+            debug(F("Channel enabled"), _channels[i]->enabled);
+          }
+        }
+        return true;
+      } else {
+        debug(F("Failed to load json"));
+      }
+    }
+  } else {
+    debug(F("No channel configured"));
+  }
+  return false;
+}
+
 template <class T> void ESPDomotic::debug (T text) {
   if (_debug) {
     Serial.print("*MM: ");
@@ -276,12 +336,13 @@ template <class T, class U> void ESPDomotic::debug (T key, U value) {
   }
 }
 
-Channel::Channel(const char* id, const char* name, uint8_t pin, uint8_t state, uint16_t timer) {
+Channel::Channel(const char* id, const char* name, uint8_t pin, uint8_t state, uint16_t timer, uint8_t pinMode) {
   this->id = id;
   this->pin = pin;
   this->state = state;
   this->timer = timer;
   this->enabled = true;
+  this->pinMode = pinMode;
   this->name = new char[_channelNameMaxLength + 1];
   updateName(name);
 }

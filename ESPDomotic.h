@@ -13,6 +13,24 @@ const uint8_t         _paramValueMaxLength            = 20;
 const uint8_t         _paramIPValueLength             = 16;   // IP max length is 15 chars
 const uint8_t         _paramPortValueLength           = 6;    // port range is from 0 to 65535
 
+class Channel {
+    public:
+        Channel(const char* id, const char* name, uint8_t pin, uint8_t state, uint16_t timer, uint8_t pinMode);
+        const char*     id;
+        char*           name;
+        uint8_t         pin;
+        char            state;
+        bool            enabled;
+        unsigned long   timer;
+        unsigned long   timerControl;
+        uint8_t         pinMode;
+
+        // void    setTimer (unsigned long t);
+        // unsigned long     getTimer ();
+        void    updateName (const char *v);
+        bool    isEnabled ();
+};
+
 /*
 Provides this functionality:
 > HTTP update
@@ -45,6 +63,8 @@ class ESPDomotic {
         void    setFeedbackPin(uint8_t fp);
         // Sets the SSID for the configuration portal (When module enters in AP mode)
         void    setPortalSSID(const char* ssid);
+        // Adds new channel to manage
+        void    addChannel(Channel* c);
 
         /* Conf getters */
         // Returns the mqtt host the user configured
@@ -59,6 +79,10 @@ class ESPDomotic {
         const char*     getStationName();
         // Returns the inner mqtt client
         PubSubClient*   getMqttClient();
+        // Returns the i'th  channel
+        Channel         *getChannel(uint8_t i);
+        // Get the quantity of channels configured
+        uint8_t         getChannelsCount();
 
         /* Utils */
         // Returns the size of a file
@@ -71,6 +95,7 @@ class ESPDomotic {
         const char*     _moduleType     = "generic";
         const char*     _apSSID         = NULL;
         uint8_t         _feedbackPin    = _invalidPinNo;
+        Channel**       _channels;
 
         /* Mqtt callbacks */
         std::function<void()>                               _mqttConnectionCallback;
@@ -80,26 +105,10 @@ class ESPDomotic {
         void            connectBroker();
         bool            loadConfig();
         void            saveConfig();
+        bool            loadChannelsSettings();
 
         /* Logging */
         template <class T> void             debug(T text);
         template <class T, class U> void    debug(T key, U value);
-};
-
-class Channel {
-    public:
-        Channel(const char* id, const char* name, uint8_t pin, uint8_t state, uint16_t timer);
-        const char*   id;
-        char*         name;
-        uint8_t       pin;
-        char          state;
-        bool          enabled;
-        unsigned long timer;
-        unsigned long timerControl; 
-
-        // void    setTimer (unsigned long t);
-        // unsigned long     getTimer ();
-        void    updateName (const char *v);
-        bool    isEnabled ();
 };
 #endif
