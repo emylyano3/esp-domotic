@@ -5,6 +5,7 @@
 
 ESPDomotic*     _domoticModule;
 bool            _condition;
+Channel         _channel("A", "channel_A", D1, '0', 60 * 1000, OUTPUT);
 
 void setup() {
     // mqttModule.setAPStaticIP(IPAddress(10,10,10,10),IPAddress(IPAddress(10,10,10,10)),IPAddress(IPAddress(255,255,255,0)));
@@ -12,9 +13,12 @@ void setup() {
     _domoticModule->setDebugOutput(DEBUG);
     _domoticModule->setModuleType("testModule");
     _domoticModule->setFeedbackPin(FEEDBACK_PIN);
+    _domoticModule->setPortalSSID("test-module-ssid");
+    _domoticModule->addChannel(&_channel);
     _domoticModule->setMqttConnectionCallback(mqttSubscription);
     _domoticModule->setMqttMessageCallback(receiveMqttMessage);
     _domoticModule->init();
+    _domoticModule->saveChannelsSettings();
     Serial.printf("Station name is: %s", _domoticModule->getModuleName());
 }
 
@@ -25,6 +29,13 @@ void loop () {
         Serial.printf("Module location is: %s", _domoticModule->getModuleLocation());
         _domoticModule->getMqttClient()->unsubscribe("oldTopic");
         _domoticModule->getMqttClient()->subscribe("newTopic");
+        _domoticModule->getChannelsCount();
+        _domoticModule->getModuleLocation();
+        _domoticModule->getModuleName();
+        _domoticModule->getChannel(0);
+        _domoticModule->getMqttServerHost();
+        _domoticModule->getMqttServerPort();
+        _domoticModule->getStationName();
     }
 }
 
