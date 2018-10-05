@@ -89,6 +89,8 @@ class ESPDomotic {
         size_t  getFileSize (const char* fileName);
         // Loads a file into the buffer.
         void    loadFile (const char* fileName, char buff[], size_t size);
+        // Persists the channels settings in FS
+        void    saveChannelsSettings();
 
     private:
         bool            _debug          = true;

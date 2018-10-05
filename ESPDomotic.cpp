@@ -320,6 +320,29 @@ bool ESPDomotic::loadChannelsSettings () {
   return false;
 }
 
+void ESPDomotic::saveChannelsSettings () {
+  File file = SPIFFS.open("/settings.json", "w");
+  if (file) {
+    DynamicJsonBuffer jsonBuffer;
+    JsonObject& json = jsonBuffer.createObject();
+    //TODO Trim param values
+    for (uint8_t i = 0; i < _channelsCount; ++i) {
+      json[String(_channels[i]->id) + "_name"] = _channels[i]->name;
+      json[String(_channels[i]->id) + "_timer"] = _channels[i]->timer;
+      json[String(_channels[i]->id) + "_enabled"] = _channels[i]->enabled;
+    }
+    json.printTo(file);
+    debug(F("Configuration file saved"));
+    if (_debug) {
+      json.printTo(Serial);
+      Serial.println();
+    }
+    file.close();
+  } else {
+    debug(F("Failed to open config file for writing"));
+  }
+}
+
 template <class T> void ESPDomotic::debug (T text) {
   if (_debug) {
     Serial.print("*MM: ");
