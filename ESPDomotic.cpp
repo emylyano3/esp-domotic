@@ -60,6 +60,10 @@ void ESPDomotic::init() {
   if (_feedbackPin != _invalidPinNo) {
     _moduleConfig.blockingFeedback(_feedbackPin, 100, 8);
   }
+  // Channels pin mode
+  for (int i = 0; i > _channelsCount; ++i) {
+    pinMode(_channels[i]->pin, _channels[i]->pinMode);
+  }
   debug(F("Connected to wifi...."));
   // MQTT Server config
   debug(F("Configuring MQTT broker"));
@@ -303,11 +307,9 @@ bool ESPDomotic::loadChannelsSettings () {
           _channels[i]->updateName(json[String(_channels[i]->id) + "_name"]);
           _channels[i]->timer = json[String(_channels[i]->id) + "_timer"];
           _channels[i]->enabled = json[String(_channels[i]->id) + "_enabled"];
-          if (_debug) {
-            debug(F("Channel id"), _channels[i]->id);
-            debug(F("Channel name"), _channels[i]->name);
-            debug(F("Channel enabled"), _channels[i]->enabled);
-          }
+          debug(F("Channel id"), _channels[i]->id);
+          debug(F("Channel name"), _channels[i]->name);
+          debug(F("Channel enabled"), _channels[i]->enabled);
         }
         return true;
       } else {
@@ -380,6 +382,10 @@ Channel::Channel(const char* id, const char* name, uint8_t pin, uint8_t state, u
 
 void Channel::updateName (const char *v) {
   String(v).toCharArray(this->name, _channelNameMaxLength);
+}
+
+void Channel::updateTimerControl() {
+  this->timerControl = millis() + this->timer;
 }
 
 bool Channel::isEnabled () {
