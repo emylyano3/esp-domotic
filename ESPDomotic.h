@@ -4,14 +4,16 @@
 #include <Arduino.h>
 #include <PubSubClient.h>
 
-const uint8_t         _invalidPinNo                   = 255;
-const unsigned long   _wifiConnectTimeout             = 5000;
-const unsigned long   _mqttBrokerReconnectionRetry    = 5000;
-const uint8_t         _wifiMinSignalQuality           = 30;
-const uint8_t         _channelNameMaxLength           = 20;
-const uint8_t         _paramValueMaxLength            = 20;
-const uint8_t         _paramIPValueLength             = 16;   // IP max length is 15 chars
-const uint8_t         _paramPortValueLength           = 6;    // port range is from 0 to 65535
+const uint8_t       _invalidPinNo                 = 255;
+const unsigned long _wifiConnectTimeout           = 5000;
+const unsigned long _mqttBrokerReconnectionRetry  = 5000;
+const uint8_t       _wifiMinSignalQuality         = 30;
+const uint8_t       _channelNameMaxLength         = 20;
+const uint8_t       _paramValueMaxLength          = 20;
+const uint8_t       _paramIPValueLength           = 16;   // IP max length is 15 chars
+const uint8_t       _paramPortValueLength         = 6;    // port range is from 0 to 65535
+const char          _stateON                      = '1';
+const char          _stateOFF                     = '0';
 
 class Channel {
     public:
@@ -77,6 +79,8 @@ class ESPDomotic {
         const char*     getModuleName();
         // Returns the location name the user gave to the module during configuration
         const char*     getModuleLocation();
+        // Returns the module type
+        const char*     getModuleType();
         // Returns the name wich the module is subscribed to the AP
         const char*     getStationName();
         // Returns the inner mqtt client
@@ -85,6 +89,8 @@ class ESPDomotic {
         Channel         *getChannel(uint8_t i);
         // Get the quantity of channels configured
         uint8_t         getChannelsCount();
+        String          getStationTopic (String cmd);
+        String          getChannelTopic (Channel *c, String cmd);
 
         /* Utils */
         // Returns the size of a file
@@ -94,6 +100,10 @@ class ESPDomotic {
         // Save the channel settings in FS
         void    saveChannelsSettings();
 
+        /* Logging */
+        template <class T> void             debug(T text);
+        template <class T, class U> void    debug(T key, U value);
+
     private:
         bool            _debug          = true;
         const char*     _moduleType     = "generic";
@@ -102,7 +112,11 @@ class ESPDomotic {
         Channel**       _channels;
 
         /* Mqtt callbacks */
+        // Called after connection to mqtt broker has been stablished.
+        // This lets user to suscribe to any topic he wants
         std::function<void()>                               _mqttConnectionCallback;
+        // Called when an income mqtt message is received.
+        // This lets user to process all incoming message to any topic it has suscribed.
         std::function<void(char*, uint8_t*, unsigned int)>  _mqttMessageCallback;
         
         /* Utils */
@@ -110,9 +124,9 @@ class ESPDomotic {
         bool            loadConfig();
         void            saveConfig();
         bool            loadChannelsSettings();
-
-        /* Logging */
-        template <class T> void             debug(T text);
-        template <class T, class U> void    debug(T key, U value);
+        bool            renameChannel(Channel* c, uint8_t* payload, unsigned int length);
+        bool            updateChannelTimer(Channel* c, uint8_t* payload, unsigned int length);
+        bool            enableChannel(Channel* c, unsigned char* payload, unsigned int length);
+        void            receiveMqttMessage(char* topic, uint8_t* payload, unsigned int length);
 };
 #endif
