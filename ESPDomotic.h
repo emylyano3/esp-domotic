@@ -28,6 +28,8 @@ class Channel {
         // void    setTimer (unsigned long t);
         // unsigned long     getTimer ();
         void    updateName (const char *v);
+        // Updates the timer control setting it to timer time ftom now
+        void    updateTimerControl();
         bool    isEnabled ();
 };
 
@@ -89,7 +91,7 @@ class ESPDomotic {
         size_t  getFileSize (const char* fileName);
         // Loads a file into the buffer.
         void    loadFile (const char* fileName, char buff[], size_t size);
-        // Persists the channels settings in FS
+        // Save the channel settings in FS
         void    saveChannelsSettings();
 
     private:
