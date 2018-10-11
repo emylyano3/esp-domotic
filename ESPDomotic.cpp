@@ -71,6 +71,7 @@ void ESPDomotic::init() {
   debug(F("Server"), getMqttServerHost());
   _mqttClient.setServer(getMqttServerHost(), getMqttServerPort());
   _mqttClient.setCallback(std::bind(&ESPDomotic::receiveMqttMessage, this, std::placeholders::_1, std::placeholders::_2, std::placeholders::_3));
+  // _mqttClient.setCallback(receiveMqttMessage);
   loadChannelsSettings();
   // OTA Update
   debug(F("Setting OTA update"));
@@ -333,6 +334,26 @@ bool ESPDomotic::loadChannelsSettings () {
     debug(F("No channel configured"));
   }
   return false;
+}
+
+void ESPDomotic::openChannel (Channel* c) {
+  debug(F("Opening channel"), c->name);
+  if (c->state == _stateON) {
+    debug(F("Valve already opened, skipping"));
+  } else {
+    digitalWrite(c->pin, LOW);
+    c->state = _stateON;
+  }
+}
+
+void ESPDomotic::closeChannel (Channel* c) {
+  debug(F("Closing valve of channel"), c->name);
+  if (c->state == _stateOFF) {
+    debug(F("Valve already closed, skipping"));
+  } else {
+    digitalWrite(c->pin, HIGH);
+    c->state = _stateOFF;
+  }
 }
 
 void ESPDomotic::receiveMqttMessage(char* topic, uint8_t* payload, unsigned int length) {
