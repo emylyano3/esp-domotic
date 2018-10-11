@@ -12,8 +12,6 @@ const uint8_t       _channelNameMaxLength         = 20;
 const uint8_t       _paramValueMaxLength          = 20;
 const uint8_t       _paramIPValueLength           = 16;   // IP max length is 15 chars
 const uint8_t       _paramPortValueLength         = 6;    // port range is from 0 to 65535
-const char          _stateON                      = '1';
-const char          _stateOFF                     = '0';
 
 class Channel {
     public:
@@ -21,17 +19,17 @@ class Channel {
         const char*     id;
         char*           name;
         uint8_t         pin;
-        char            state;
+        uint8_t         state;
         bool            enabled;
         unsigned long   timer;
         unsigned long   timerControl;
         uint8_t         pinMode;
 
-        // void    setTimer (unsigned long t);
-        // unsigned long     getTimer ();
+        // Updates the channel´s name
         void    updateName (const char *v);
         // Updates the timer control setting it to timer time ftom now
         void    updateTimerControl();
+        // Returns if the channel is enabled or not
         bool    isEnabled ();
 };
 
@@ -89,8 +87,14 @@ class ESPDomotic {
         Channel         *getChannel(uint8_t i);
         // Get the quantity of channels configured
         uint8_t         getChannelsCount();
-        String          getStationTopic (String cmd);
         String          getChannelTopic (Channel *c, String cmd);
+        bool            renameChannel(Channel* c, uint8_t* payload, unsigned int length);
+        bool            updateChannelTimer(Channel* c, uint8_t* payload, unsigned int length);
+        bool            enableChannel(Channel* c, unsigned char* payload, unsigned int length);
+        void            saveChannelsSettings();
+        void            openChannel(Channel* c);
+        void            closeChannel(Channel* c);
+        String          getStationTopic (String cmd);
 
         /* Utils */
         // Returns the size of a file
@@ -98,10 +102,8 @@ class ESPDomotic {
         // Loads a file into the buffer.
         void    loadFile (const char* fileName, char buff[], size_t size);
         // Save the channel settings in FS
-        void    saveChannelsSettings();
-        void    openChannel(Channel* c);
-        void    closeChannel(Channel* c);
         void    moduleHardReset ();
+        
 
         /* Logging */
         template <class T> void             debug(T text);
@@ -127,9 +129,6 @@ class ESPDomotic {
         bool            loadConfig();
         void            saveConfig();
         bool            loadChannelsSettings();
-        bool            renameChannel(Channel* c, uint8_t* payload, unsigned int length);
-        bool            updateChannelTimer(Channel* c, uint8_t* payload, unsigned int length);
-        bool            enableChannel(Channel* c, unsigned char* payload, unsigned int length);
         void            receiveMqttMessage(char* topic, uint8_t* payload, unsigned int length);
 };
 #endif

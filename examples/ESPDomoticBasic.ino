@@ -5,6 +5,7 @@
 
 ESPDomotic*     _domoticModule;
 bool            _condition;
+bool            _reset;
 Channel         _channel("A", "channel_A", D1, '0', 60 * 1000, OUTPUT);
 
 void setup() {
@@ -19,6 +20,9 @@ void setup() {
     _domoticModule->setMqttMessageCallback(receiveMqttMessage);
     _domoticModule->init();
     _domoticModule->saveChannelsSettings();
+    int fileSize = _domoticModule->getFileSize("/file.txt");
+    char buff[fileSize];
+    _domoticModule->loadFile("file.txt", buff, fileSize);
     Serial.printf("Station name is: %s", _domoticModule->getModuleName());
 }
 
@@ -36,6 +40,11 @@ void loop () {
         _domoticModule->getMqttServerHost();
         _domoticModule->getMqttServerPort();
         _domoticModule->getStationName();
+        _domoticModule->getStationTopic("cmd");
+        _domoticModule->getChannelTopic(_domoticModule->getChannel(0), "cmd");
+    }
+    if (_reset) {
+        _domoticModule->moduleHardReset();
     }
 }
 
