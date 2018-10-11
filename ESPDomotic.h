@@ -83,10 +83,7 @@ class ESPDomotic {
         uint16_t        getMqttServerPort();
         // Returns the inner mqtt client
         PubSubClient*   getMqttClient();
-        // Adds new channel to manage
-        void            addChannel(Channel* c);
         String          getStationTopic (String cmd);
-        String          getChannelTopic (Channel *c, String cmd);
         
         /* Channels */
         // Returns the i'th  channel
@@ -95,8 +92,14 @@ class ESPDomotic {
         uint8_t         getChannelsCount();
         // Save the channel settings in FS
         void            saveChannelsSettings ();
+        // Sets the channel's state lo HIGH
         void            openChannel (Channel* c);
+        // Sets the channel's state lo LOW
         void            closeChannel (Channel* c);
+        // Adds new channel to manage
+        void            addChannel(Channel* c);
+        // Returns the mqtt topic to which a channel may be subscribed
+        String          getChannelTopic (Channel *c, String cmd);
 
         /* Utils */
         // Returns the size of a file
@@ -107,7 +110,6 @@ class ESPDomotic {
         /* Logging */
         template <class T> void             debug(T text);
         template <class T, class U> void    debug(T key, U value);
-
 
     private:
         bool            _debug          = true;
