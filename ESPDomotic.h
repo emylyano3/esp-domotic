@@ -48,31 +48,19 @@ class ESPDomotic {
         /* Main methods */
         // Must be called when all setup is done
         void    init();
-        
         // Must be called inside main loop
         void    loop();
-        // Sets what type of module is it
-        void    setModuleType(const char* mt);
-        // Enables/Disables debugging
-        void    setDebugOutput(bool debug);
 
-        /* Setting methods */
-        // Sets the callback to be called just after the connection to mqtt broker has been stablished
-        void    setMqttConnectionCallback(std::function<void()> callback);
-        // Sets the callback used to tell that a message was received via mqtt
-        void    setMqttMessageCallback(std::function<void(char*, uint8_t*, unsigned int)> callback);
-        // Sets the pin through wich signal feedback is given to the user (a speaker, led, etc)
-        void    setFeedbackPin(uint8_t fp);
+
+        /* Module settings */
         // Sets the SSID for the configuration portal (When module enters in AP mode)
-        void    setPortalSSID(const char* ssid);
-        // Adds new channel to manage
-        void    addChannel(Channel* c);
-
-        /* Conf getters */
-        // Returns the mqtt host the user configured
-        const char*     getMqttServerHost();
-        // Returns the mqtt port the user configured
-        uint16_t        getMqttServerPort();
+        void            setPortalSSID(const char* ssid);
+        // Sets what type of module is it
+        void            setModuleType(const char* mt);
+        // Enables/Disables debugging
+        void            setDebugOutput(bool debug);
+        // Sets the pin through wich signal feedback is given to the user (a speaker, led, etc)
+        void            setFeedbackPin(uint8_t fp);
         // Returns the name the user gave to the module during configuration
         const char*     getModuleName();
         // Returns the location name the user gave to the module during configuration
@@ -81,33 +69,45 @@ class ESPDomotic {
         const char*     getModuleType();
         // Returns the name wich the module is subscribed to the AP
         const char*     getStationName();
+        // Resets the module and erases persisted data & wifi settings (factory restore)
+        void            moduleHardReset ();
+        
+        /* MQTT */
+        // Sets the callback to be called just after the connection to mqtt broker has been stablished
+        void            setMqttConnectionCallback(std::function<void()> callback);
+        // Sets the callback used to tell that a message was received via mqtt
+        void            setMqttMessageCallback(std::function<void(char*, uint8_t*, unsigned int)> callback);
+        // Returns the mqtt host the user configured
+        const char*     getMqttServerHost();
+        // Returns the mqtt port the user configured
+        uint16_t        getMqttServerPort();
         // Returns the inner mqtt client
         PubSubClient*   getMqttClient();
+        // Adds new channel to manage
+        void            addChannel(Channel* c);
+        String          getStationTopic (String cmd);
+        String          getChannelTopic (Channel *c, String cmd);
+        
+        /* Channels */
         // Returns the i'th  channel
         Channel         *getChannel(uint8_t i);
         // Get the quantity of channels configured
         uint8_t         getChannelsCount();
-        String          getChannelTopic (Channel *c, String cmd);
-        bool            renameChannel(Channel* c, uint8_t* payload, unsigned int length);
-        bool            updateChannelTimer(Channel* c, uint8_t* payload, unsigned int length);
-        bool            enableChannel(Channel* c, unsigned char* payload, unsigned int length);
-        void            saveChannelsSettings();
-        void            openChannel(Channel* c);
-        void            closeChannel(Channel* c);
-        String          getStationTopic (String cmd);
+        // Save the channel settings in FS
+        void            saveChannelsSettings ();
+        void            openChannel (Channel* c);
+        void            closeChannel (Channel* c);
 
         /* Utils */
         // Returns the size of a file
-        size_t  getFileSize (const char* fileName);
+        size_t          getFileSize (const char* fileName);
         // Loads a file into the buffer.
-        void    loadFile (const char* fileName, char buff[], size_t size);
-        // Save the channel settings in FS
-        void    moduleHardReset ();
-        
+        void            loadFile (const char* fileName, char buff[], size_t size);
 
         /* Logging */
         template <class T> void             debug(T text);
         template <class T, class U> void    debug(T key, U value);
+
 
     private:
         bool            _debug          = true;
@@ -129,6 +129,9 @@ class ESPDomotic {
         bool            loadConfig();
         void            saveConfig();
         bool            loadChannelsSettings();
+        bool            renameChannel(Channel* c, uint8_t* payload, unsigned int length);
+        bool            updateChannelTimer(Channel* c, uint8_t* payload, unsigned int length);
+        bool            enableChannel(Channel* c, unsigned char* payload, unsigned int length);
         void            receiveMqttMessage(char* topic, uint8_t* payload, unsigned int length);
 };
 #endif
