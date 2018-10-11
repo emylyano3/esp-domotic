@@ -71,7 +71,6 @@ void ESPDomotic::init() {
   debug(F("Server"), getMqttServerHost());
   _mqttClient.setServer(getMqttServerHost(), getMqttServerPort());
   _mqttClient.setCallback(std::bind(&ESPDomotic::receiveMqttMessage, this, std::placeholders::_1, std::placeholders::_2, std::placeholders::_3));
-  // _mqttClient.setCallback(receiveMqttMessage);
   loadChannelsSettings();
   // OTA Update
   debug(F("Setting OTA update"));
