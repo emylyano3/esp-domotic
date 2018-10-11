@@ -358,6 +358,9 @@ void ESPDomotic::closeChannel (Channel* c) {
 
 void ESPDomotic::receiveMqttMessage(char* topic, uint8_t* payload, unsigned int length) {
   debug("MQTT message received on topic", topic);
+  if (String(topic).equals(getStationTopic("hrst"))) {
+    moduleHardReset();
+  }
   for (size_t i = 0; i < getChannelsCount(); ++i) {
     if (getChannelTopic(getChannel(i), "enable").equals(topic)) {
       if (enableChannel(getChannel(i), payload, length)) {
@@ -378,6 +381,14 @@ void ESPDomotic::receiveMqttMessage(char* topic, uint8_t* payload, unsigned int 
     debug("Passing mqtt callback to user");
     _mqttMessageCallback(topic, payload, length);
   }
+}
+
+void ESPDomotic::moduleHardReset () {
+  debug(F("Doing a module hard reset"));
+  SPIFFS.format();
+  WiFi.disconnect();
+  delay(200);
+  ESP.restart();
 }
 
 bool ESPDomotic::enableChannel(Channel* c, unsigned char* payload, unsigned int length) {
