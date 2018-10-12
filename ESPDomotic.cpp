@@ -230,7 +230,7 @@ void ESPDomotic::connectBroker() {
     if (_mqttClient.connect(getStationName())) {
       debug(F("MQTT broker Connected"));
       for (size_t i = 0; i < getChannelsCount(); ++i) {
-        getMqttClient()->subscribe(getChannelTopic(getChannel(i), "+").c_str());
+        getMqttClient()->subscribe(getChannelTopic(getChannel(i), "command/+").c_str());
       }
       if (_mqttConnectionCallback) {
         _mqttConnectionCallback();
@@ -241,12 +241,12 @@ void ESPDomotic::connectBroker() {
   }
 }
 
-String ESPDomotic::getChannelTopic (Channel *c, String cmd) {
-  return String(getModuleType()) + F("/") + getModuleLocation() + F("/") + getModuleName() + F("/") + c->name + F("/") + cmd;
+String ESPDomotic::getChannelTopic (Channel *c, String suffix) {
+  return String(getModuleType()) + F("/") + getModuleLocation() + F("/") + getModuleName() + F("/") + c->name + F("/") + suffix;
 }
 
-String ESPDomotic::getStationTopic (String cmd) {
-  return String(getModuleType()) + F("/") + getModuleLocation() + F("/") + getModuleName() + F("/") + cmd;
+String ESPDomotic::getStationTopic (String suffix) {
+  return String(getModuleType()) + F("/") + getModuleLocation() + F("/") + getModuleName() + F("/") + suffix;
 }
 
 bool ESPDomotic::loadConfig () {
@@ -357,20 +357,20 @@ void ESPDomotic::closeChannel (Channel* c) {
 
 void ESPDomotic::receiveMqttMessage(char* topic, uint8_t* payload, unsigned int length) {
   debug("MQTT message received on topic", topic);
-  if (String(topic).equals(getStationTopic("hrst"))) {
+  if (String(topic).equals(getStationTopic("command/hrst"))) {
     moduleHardReset();
   }
   for (size_t i = 0; i < getChannelsCount(); ++i) {
-    if (getChannelTopic(getChannel(i), "enable").equals(topic)) {
+    if (getChannelTopic(getChannel(i), "command/enable").equals(topic)) {
       if (enableChannel(getChannel(i), payload, length)) {
         saveChannelsSettings();
       }
-      getMqttClient()->publish(getChannelTopic(getChannel(i), "state").c_str(), getChannel(i)->enabled ? "1" : "0");
-    } else if (getChannelTopic(getChannel(i), "timer").equals(topic)) {
+      getMqttClient()->publish(getChannelTopic(getChannel(i), "feedback/state").c_str(), getChannel(i)->enabled ? "1" : "0");
+    } else if (getChannelTopic(getChannel(i), "command/timer").equals(topic)) {
       if (updateChannelTimer(getChannel(i), payload, length)) {
         saveChannelsSettings();
       }
-    } else if (getChannelTopic(getChannel(i), "rename").equals(topic)) {
+    } else if (getChannelTopic(getChannel(i), "command/rename").equals(topic)) {
       if (renameChannel(getChannel(i), payload, length)) {
         saveChannelsSettings();
       }
@@ -427,9 +427,9 @@ bool ESPDomotic::renameChannel(Channel* c, uint8_t* payload, unsigned int length
   bool renamed = !String(c->name).equals(String(newName));
   if (renamed) {
     debug(F("Channel renamed"), newName);
-    getMqttClient()->unsubscribe(getChannelTopic(c, "+").c_str());
+    getMqttClient()->unsubscribe(getChannelTopic(c, "command/+").c_str());
     c->updateName(newName);
-    getMqttClient()->subscribe(getChannelTopic(c, "+").c_str());
+    getMqttClient()->subscribe(getChannelTopic(c, "command/+").c_str());
   }
   return renamed;
 }
