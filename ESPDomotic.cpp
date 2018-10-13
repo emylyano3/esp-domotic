@@ -325,6 +325,7 @@ bool ESPDomotic::loadChannelsSettings () {
           _channels[i]->enabled = json[String(_channels[i]->id) + "_enabled"];
           debug(F("Channel id"), _channels[i]->id);
           debug(F("Channel name"), _channels[i]->name);
+          debug(F("Channel timer"), _channels[i]->timer);
           debug(F("Channel enabled"), _channels[i]->enabled);
         }
         return true;
