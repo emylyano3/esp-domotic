@@ -359,20 +359,27 @@ void ESPDomotic::receiveMqttMessage(char* topic, uint8_t* payload, unsigned int 
   debug("MQTT message received on topic", topic);
   if (String(topic).equals(getStationTopic("command/hrst"))) {
     moduleHardReset();
-  }
-  for (size_t i = 0; i < getChannelsCount(); ++i) {
-    if (getChannelTopic(getChannel(i), "command/enable").equals(topic)) {
-      if (enableChannel(getChannel(i), payload, length)) {
-        saveChannelsSettings();
-      }
-      getMqttClient()->publish(getChannelTopic(getChannel(i), "feedback/state").c_str(), getChannel(i)->enabled ? "1" : "0");
-    } else if (getChannelTopic(getChannel(i), "command/timer").equals(topic)) {
-      if (updateChannelTimer(getChannel(i), payload, length)) {
-        saveChannelsSettings();
-      }
-    } else if (getChannelTopic(getChannel(i), "command/rename").equals(topic)) {
-      if (renameChannel(getChannel(i), payload, length)) {
-        saveChannelsSettings();
+  } else {
+    for (size_t i = 0; i < getChannelsCount(); ++i) {
+      Channel *c = getChannel(i);
+      if (getChannelTopic(c, "command/enable").equals(topic)) {
+        if (enableChannel(c, payload, length)) {
+          saveChannelsSettings();
+        }
+        getMqttClient()->publish(getChannelTopic(c, "feedback/enabled").c_str(), c->enabled ? "1" : "0");
+      } else if (getChannelTopic(c, "command/timer").equals(topic)) {
+        if (updateChannelTimer(c, payload, length)) {
+          saveChannelsSettings();
+        }
+      } else if (getChannelTopic(c, "command/rename").equals(topic)) {
+        if (renameChannel(c, payload, length)) {
+          saveChannelsSettings();
+        }
+      } else if (c->pinMode == OUTPUT && getChannelTopic(c, "command/state").equals(topic)) {
+        // command/state topic is used to change the state on the channel with a desired value. So, receiving a mqtt
+        // message with this purpose has sense only if the channel is an output one.
+        changeState(c, payload, length);
+        getMqttClient()->publish(getChannelTopic(c, "feedback/state").c_str(), c->state == HIGH ? "1" : "0");
       }
     }
   }
@@ -434,6 +441,34 @@ bool ESPDomotic::renameChannel(Channel* c, uint8_t* payload, unsigned int length
   return renamed;
 }
 
+bool ESPDomotic::changeState(Channel* c, uint8_t* payload, unsigned int length) {
+  debug(F("Updating channel state"), c->name);
+  if (length < 1) {
+    debug(F("Invalid payload"));
+    return false;
+  }
+  switch (payload[0]) {
+    case '0':
+      if (c->state == LOW) {
+        return false;
+      } else {
+        digitalWrite(c->pin, LOW);
+        return true;
+      }
+    case '1':
+      if (c->state == HIGH) {
+        return false;
+      } else {
+        digitalWrite(c->pin, HIGH);
+        return true;
+      }
+     break;
+    default:
+      debug(F("Invalid state"), payload[0]);
+    return false;
+  }
+}
+
 bool ESPDomotic::updateChannelTimer(Channel* c, uint8_t* payload, unsigned int length) {
   debug(F("Updating irrigation duration for channel"), c->name);
   if (length < 1) {
@@ -449,7 +484,7 @@ bool ESPDomotic::updateChannelTimer(Channel* c, uint8_t* payload, unsigned int l
   long newTimer = String(buff).toInt();
   debug(F("Duration"), newTimer);
   bool timerChanged = c->timer != (unsigned long) newTimer * 60 * 1000;
-  c->timer = newTimer * 60 * 1000; // received in seconds set in millis
+  c->timer = newTimer * 60 * 1000; // received in minutes set in millis
   return timerChanged;
 }
 

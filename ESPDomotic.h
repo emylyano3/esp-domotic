@@ -100,6 +100,14 @@ class ESPDomotic {
         void            addChannel(Channel* c);
         // Returns the mqtt topic to which a channel may be subscribed
         String          getChannelTopic (Channel *c, String cmd);
+        // To rename a channel
+        bool            renameChannel(Channel* c, uint8_t* payload, unsigned int length);
+        // To change the state of a channel. Intened to use with channel configures as OUTPUT
+        bool            changeState(Channel* c, uint8_t* payload, unsigned int length);
+        // To update the timer of a channel
+        bool            updateChannelTimer(Channel* c, uint8_t* payload, unsigned int length);
+        // To enable/disable a channel
+        bool            enableChannel(Channel* c, unsigned char* payload, unsigned int length);
 
         /* Utils */
         // Returns the size of a file
@@ -131,9 +139,6 @@ class ESPDomotic {
         bool            loadConfig();
         void            saveConfig();
         bool            loadChannelsSettings();
-        bool            renameChannel(Channel* c, uint8_t* payload, unsigned int length);
-        bool            updateChannelTimer(Channel* c, uint8_t* payload, unsigned int length);
-        bool            enableChannel(Channel* c, unsigned char* payload, unsigned int length);
         void            receiveMqttMessage(char* topic, uint8_t* payload, unsigned int length);
 };
 #endif
