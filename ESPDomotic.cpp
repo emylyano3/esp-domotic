@@ -340,21 +340,21 @@ bool ESPDomotic::loadChannelsSettings () {
 
 void ESPDomotic::openChannel (Channel* c) {
   debug(F("Opening channel"), c->name);
-  if (c->state == HIGH) {
+  if (c->state == LOW) {
     debug(F("Valve already opened, skipping"));
   } else {
     digitalWrite(c->pin, LOW);
-    c->state = HIGH;
+    c->state = LOW;
   }
 }
 
 void ESPDomotic::closeChannel (Channel* c) {
   debug(F("Closing valve of channel"), c->name);
-  if (c->state == LOW) {
+  if (c->state == HIGH) {
     debug(F("Valve already closed, skipping"));
   } else {
     digitalWrite(c->pin, HIGH);
-    c->state = LOW;
+    c->state = HIGH;
   }
 }
 
