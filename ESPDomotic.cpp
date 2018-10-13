@@ -229,6 +229,9 @@ void ESPDomotic::connectBroker() {
     debug(F("Connecting MQTT broker as"), getStationName());
     if (_mqttClient.connect(getStationName())) {
       debug(F("MQTT broker Connected"));
+      // subscribe station to any command
+      getMqttClient()->subscribe(getStationTopic("command/+").c_str());
+      // subscribe channels to any command
       for (size_t i = 0; i < getChannelsCount(); ++i) {
         getMqttClient()->subscribe(getChannelTopic(getChannel(i), "command/+").c_str());
       }
@@ -398,18 +401,18 @@ void ESPDomotic::moduleHardReset () {
 }
 
 bool ESPDomotic::enableChannel(Channel* c, unsigned char* payload, unsigned int length) {
-  debug(F("Changing channel state"), c->name);
+  debug(F("Ubpading channel enablement"), c->name);
   if (length != 1 || !payload) {
     debug(F("Invalid payload. Ignoring."));
     return false;
   }
   bool stateChanged = false;
   switch (payload[0]) {
-    case LOW:
+    case '0':
       stateChanged = c->enabled;
       c->enabled = false;
       break;
-    case HIGH:
+    case '1':
       stateChanged = !c->enabled;
       c->enabled = true;
       break;
@@ -450,15 +453,21 @@ bool ESPDomotic::changeState(Channel* c, uint8_t* payload, unsigned int length) 
   switch (payload[0]) {
     case '0':
       if (c->state == LOW) {
+        debug("State same as before [LOW]");
         return false;
       } else {
+        debug("Changing state to [LOW]");
+        c->state = LOW;
         digitalWrite(c->pin, LOW);
         return true;
       }
     case '1':
       if (c->state == HIGH) {
+        debug("State same as before [HIGH]");
         return false;
       } else {
+        debug("Changing state to [HIGH]");
+        c->state = HIGH;
         digitalWrite(c->pin, HIGH);
         return true;
       }
