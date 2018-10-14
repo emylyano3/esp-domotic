@@ -6,7 +6,7 @@
 ESPDomotic*     _domoticModule;
 bool            _condition;
 bool            _reset;
-Channel         _channel("A", "channel_A", D1, '0', 60 * 1000, OUTPUT);
+Channel         _channel("A", "channel_A", D1, OUTPUT, HIGH, 60 * 1000);
 
 void setup() {
     // mqttModule.setAPStaticIP(IPAddress(10,10,10,10),IPAddress(IPAddress(10,10,10,10)),IPAddress(IPAddress(255,255,255,0)));
