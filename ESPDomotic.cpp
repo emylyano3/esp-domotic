@@ -57,19 +57,19 @@ void ESPDomotic::init() {
     _moduleConfig.setFeedbackPin(_feedbackPin);
   }
   _moduleConfig.connectWifiNetwork(loadConfig());
+  debug(F("Connected to wifi...."));
   if (_feedbackPin != _invalidPinNo) {
     _moduleConfig.blockingFeedback(_feedbackPin, 100, 8);
   }
-  // Channels pin mode
-  for (int i = 0; i > _channelsCount; ++i) {
+  debug("Setting channels pin mode. Channels count", _channelsCount);
+  for (int i = 0; i < _channelsCount; ++i) {
+    Serial.printf("Setting pin %d of channel %s in %s mode\n", _channels[i]->pin, _channels[i]->name, _channels[i]->pinMode == OUTPUT ? "OUTPUT" : "INPUT");
     pinMode(_channels[i]->pin, _channels[i]->pinMode);
     digitalWrite(_channels[i]->pin, HIGH);
   }
-  debug(F("Connected to wifi...."));
-  // MQTT Server config
   debug(F("Configuring MQTT broker"));
-  debug(F("Port"), getMqttServerPort());
-  debug(F("Server"), getMqttServerHost());
+  debug(F("HOST"), getMqttServerHost());
+  debug(F("PORT"), getMqttServerPort());
   _mqttClient.setServer(getMqttServerHost(), getMqttServerPort());
   _mqttClient.setCallback(std::bind(&ESPDomotic::receiveMqttMessage, this, std::placeholders::_1, std::placeholders::_2, std::placeholders::_3));
   loadChannelsSettings();
