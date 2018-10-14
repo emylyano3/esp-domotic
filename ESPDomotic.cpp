@@ -63,7 +63,7 @@ void ESPDomotic::init() {
   // Channels pin mode
   for (int i = 0; i > _channelsCount; ++i) {
     pinMode(_channels[i]->pin, _channels[i]->pinMode);
-    digitalWrite(_channels[i].pin, HIGH);
+    digitalWrite(_channels[i]->pin, HIGH);
   }
   debug(F("Connected to wifi...."));
   // MQTT Server config
