@@ -537,7 +537,7 @@ template <class T, class U> void ESPDomotic::debug (T key, U value) {
   }
 }
 
-Channel::Channel(const char* id, const char* name, uint8_t pin, uint8_t state, uint16_t timer, uint8_t pinMode) {
+Channel::Channel(const char* id, const char* name, uint8_t pin, uint8_t pinMode, uint8_t state, uint16_t timer) {
   this->id = id;
   this->pin = pin;
   this->state = state;
@@ -547,14 +547,6 @@ Channel::Channel(const char* id, const char* name, uint8_t pin, uint8_t state, u
   this->name = new char[_channelNameMaxLength + 1];
   updateName(name);
 }
-
-// void Channel::setTimer (unsigned long timer) {
-//   this->timer = timer;
-// }
-
-// unsigned long Channel::getTimer () {
-//   return this->timer;
-// }
 
 void Channel::updateName (const char *v) {
   String(v).toCharArray(this->name, _channelNameMaxLength);

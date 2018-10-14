@@ -15,15 +15,16 @@ const uint8_t       _paramPortValueLength         = 6;    // port range is from 
 
 class Channel {
     public:
-        Channel(const char* id, const char* name, uint8_t pin, uint8_t state, uint16_t timer, uint8_t pinMode);
+        Channel(const char* id, const char* name, uint8_t pin, uint8_t pinMode, uint8_t state, uint16_t timer);
         const char*     id;
         char*           name;
         uint8_t         pin;
-        uint8_t         state;
-        bool            enabled;
-        unsigned long   timer;
-        unsigned long   timerControl;
         uint8_t         pinMode;
+        uint8_t         state;
+        unsigned long   timer;
+        bool            enabled;
+        
+        unsigned long   timerControl;
 
         // Updates the channel´s name
         void    updateName (const char *v);
