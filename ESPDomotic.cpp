@@ -63,6 +63,7 @@ void ESPDomotic::init() {
   // Channels pin mode
   for (int i = 0; i > _channelsCount; ++i) {
     pinMode(_channels[i]->pin, _channels[i]->pinMode);
+    digitalWrite(_channels[i].pin, HIGH);
   }
   debug(F("Connected to wifi...."));
   // MQTT Server config
@@ -350,7 +351,7 @@ void ESPDomotic::openChannel (Channel* c) {
 }
 
 void ESPDomotic::closeChannel (Channel* c) {
-  debug(F("Closing valve of channel"), c->name);
+  debug(F("Closing channel"), c->name);
   if (c->state == HIGH) {
     debug(F("Valve already closed, skipping"));
   } else {
