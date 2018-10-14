@@ -36,7 +36,9 @@ ESPDomotic::ESPDomotic() {
 ESPDomotic::~ESPDomotic() {}
 
 void ESPDomotic::init() {
+  #ifdef LOGGING
   debug(F("ESP Domotic module INIT"));
+  #endif
   /* Wifi connection */
   ESPConfig _moduleConfig;
   _moduleConfig.addParameter(&_moduleLocation);
@@ -57,31 +59,43 @@ void ESPDomotic::init() {
     _moduleConfig.setFeedbackPin(_feedbackPin);
   }
   _moduleConfig.connectWifiNetwork(loadConfig());
+  #ifdef LOGGING
   debug(F("Connected to wifi...."));
+  #endif
   if (_feedbackPin != _invalidPinNo) {
     _moduleConfig.blockingFeedback(_feedbackPin, 100, 8);
   }
+  #ifdef LOGGING
   debug("Setting channels pin mode. Channels count", _channelsCount);
+  #endif
   for (int i = 0; i < _channelsCount; ++i) {
+    #ifdef LOGGING
     Serial.printf("Setting pin %d of channel %s in %s mode\n", _channels[i]->pin, _channels[i]->name, _channels[i]->pinMode == OUTPUT ? "OUTPUT" : "INPUT");
+    #endif
     pinMode(_channels[i]->pin, _channels[i]->pinMode);
     digitalWrite(_channels[i]->pin, HIGH);
+    #ifdef LOGGING
+    debug(F("Configuring MQTT broker"));
+    debug(F("HOST"), getMqttServerHost());
+    debug(F("PORT"), getMqttServerPort());
+    #endif
   }
-  debug(F("Configuring MQTT broker"));
-  debug(F("HOST"), getMqttServerHost());
-  debug(F("PORT"), getMqttServerPort());
   _mqttClient.setServer(getMqttServerHost(), getMqttServerPort());
   _mqttClient.setCallback(std::bind(&ESPDomotic::receiveMqttMessage, this, std::placeholders::_1, std::placeholders::_2, std::placeholders::_3));
   loadChannelsSettings();
   // OTA Update
+  #ifdef LOGGING
   debug(F("Setting OTA update"));
+  #endif
   MDNS.begin(getStationName());
   MDNS.addService("http", "tcp", 80);
   _httpUpdater.setup(&_httpServer);
   _httpServer.begin();
+  #ifdef LOGGING
   debug(F("HTTPUpdateServer ready.")); 
   debug("Open http://" + String(getStationName()) + ".local/update");
   debug("Open http://" + WiFi.localIP().toString() + "/update");
+  #endif
 }
 
 void ESPDomotic::loop() {
@@ -90,10 +104,6 @@ void ESPDomotic::loop() {
     connectBroker();
   }
   _mqttClient.loop();
-}
-
-void ESPDomotic::setDebugOutput(bool debug) {
-  _debug = debug;
 }
 
 void ESPDomotic::setMqttConnectionCallback(std::function<void()> callback) {
@@ -120,7 +130,9 @@ void ESPDomotic::addChannel(Channel *c) {
   if (_channelsCount < _channelsMax) {
     _channels[_channelsCount++] = c;
   } else {
+    #ifdef LOGGING
     debug(F("No more channels suported"));
+    #endif
   }
 }
 
@@ -194,13 +206,19 @@ size_t ESPDomotic::getFileSize (const char* fileName) {
         return s;
       } else {
         file.close();
+        #ifdef LOGGING
         debug(F("Cant open file"), fileName);
+        #endif
       }
     } else {
+      #ifdef LOGGING
       debug(F("File not found"), fileName);
+      #endif
     }
   } else {
+    #ifdef LOGGING
     debug(F("Failed to mount FS"));
+    #endif
   }
   return 0;
 }
@@ -214,22 +232,32 @@ void ESPDomotic::loadFile (const char* fileName, char buff[], size_t size) {
         file.close();
       } else {
         file.close();
+        #ifdef LOGGING
         debug(F("Cant open file"), fileName);
+        #endif
       }
     } else {
+      #ifdef LOGGING
       debug(F("File not found"), fileName);
+      #endif
     }
   } else {
+    #ifdef LOGGING
     debug(F("Failed to mount FS"));
+    #endif
   }
 }
 
 void ESPDomotic::connectBroker() {
   if (_mqttNextConnAtte <= millis()) {
     _mqttNextConnAtte = millis() + _mqttBrokerReconnectionRetry;
+    #ifdef LOGGING
     debug(F("Connecting MQTT broker as"), getStationName());
+    #endif
     if (_mqttClient.connect(getStationName())) {
+      #ifdef LOGGING
       debug(F("MQTT broker Connected"));
+      #endif
       // subscribe station to any command
       getMqttClient()->subscribe(getStationTopic("command/+").c_str());
       // subscribe channels to any command
@@ -240,7 +268,9 @@ void ESPDomotic::connectBroker() {
         _mqttConnectionCallback();
       }
     } else {
+      #ifdef LOGGING
       debug(F("Failed. RC:"), _mqttClient.state());
+      #endif
     }
   }
 }
@@ -269,13 +299,15 @@ bool ESPDomotic::loadConfig () {
       _mqttPort.updateValue(json[_mqttPort.getName()]);
       _moduleLocation.updateValue(json[_moduleLocation.getName()]);
       _moduleName.updateValue(json[_moduleName.getName()]);
-      if (_debug) {
-        json.printTo(Serial);
-        Serial.println();
-      }
+      #ifdef LOGGING
+      json.printTo(Serial);
+      Serial.println();
+      #endif
       return true;
     } else {
+      #ifdef LOGGING
       debug(F("Failed to load json config"));
+      #endif
     }
   }
   return false;
@@ -296,14 +328,16 @@ void ESPDomotic::saveConfig () {
     json[_moduleLocation.getName()] = _moduleLocation.getValue();
     json[_moduleName.getName()] = _moduleName.getValue();
     json.printTo(file);
+    #ifdef LOGGING
     debug(F("Configuration file saved"));
-    if (_debug) {
-      json.printTo(Serial);
-      Serial.println();
-    }
+    json.printTo(Serial);
+    Serial.println();
+    #endif
     file.close();
   } else {
+    #ifdef LOGGING
     debug(F("Failed to open config file for writing"));
+    #endif
   }
 }
 
@@ -315,35 +349,45 @@ bool ESPDomotic::loadChannelsSettings () {
       loadFile("/settings.json", buff, size);
       DynamicJsonBuffer jsonBuffer;
       JsonObject& json = jsonBuffer.parseObject(buff);
-      if (_debug) {
-        json.printTo(Serial);
-        Serial.println();
-      }
+      #ifdef LOGGING
+      json.printTo(Serial);
+      Serial.println();
+      #endif
       if (json.success()) {
         for (uint8_t i = 0; i < _channelsCount; ++i) {
           _channels[i]->updateName(json[String(_channels[i]->id) + "_name"]);
           _channels[i]->timer = json[String(_channels[i]->id) + "_timer"];
           _channels[i]->enabled = json[String(_channels[i]->id) + "_enabled"];
+          #ifdef LOGGING
           debug(F("Channel id"), _channels[i]->id);
           debug(F("Channel name"), _channels[i]->name);
           debug(F("Channel timer"), _channels[i]->timer);
           debug(F("Channel enabled"), _channels[i]->enabled);
+          #endif
         }
         return true;
       } else {
+        #ifdef LOGGING
         debug(F("Failed to load json"));
+        #endif
       }
     }
   } else {
+    #ifdef LOGGING
     debug(F("No channel configured"));
+    #endif
   }
   return false;
 }
 
 void ESPDomotic::openChannel (Channel* c) {
+  #ifdef LOGGING
   debug(F("Opening channel"), c->name);
+  #endif
   if (c->state == LOW) {
+    #ifdef LOGGING
     debug(F("Valve already opened, skipping"));
+    #endif
   } else {
     digitalWrite(c->pin, LOW);
     c->state = LOW;
@@ -351,9 +395,13 @@ void ESPDomotic::openChannel (Channel* c) {
 }
 
 void ESPDomotic::closeChannel (Channel* c) {
+  #ifdef LOGGING
   debug(F("Closing channel"), c->name);
+  #endif
   if (c->state == HIGH) {
+    #ifdef LOGGING
     debug(F("Valve already closed, skipping"));
+    #endif
   } else {
     digitalWrite(c->pin, HIGH);
     c->state = HIGH;
@@ -361,7 +409,9 @@ void ESPDomotic::closeChannel (Channel* c) {
 }
 
 void ESPDomotic::receiveMqttMessage(char* topic, uint8_t* payload, unsigned int length) {
+  #ifdef LOGGING
   debug("MQTT message received on topic", topic);
+  #endif
   if (String(topic).equals(getStationTopic("command/hrst"))) {
     moduleHardReset();
   } else {
@@ -389,13 +439,17 @@ void ESPDomotic::receiveMqttMessage(char* topic, uint8_t* payload, unsigned int 
     }
   }
   if (_mqttMessageCallback) {
+    #ifdef LOGGING
     debug("Passing mqtt callback to user");
+    #endif
     _mqttMessageCallback(topic, payload, length);
   }
 }
 
 void ESPDomotic::moduleHardReset () {
+  #ifdef LOGGING
   debug(F("Doing a module hard reset"));
+  #endif
   SPIFFS.format();
   WiFi.disconnect();
   delay(200);
@@ -403,9 +457,13 @@ void ESPDomotic::moduleHardReset () {
 }
 
 bool ESPDomotic::enableChannel(Channel* c, unsigned char* payload, unsigned int length) {
+  #ifdef LOGGING
   debug(F("Ubpading channel enablement"), c->name);
+  #endif
   if (length != 1 || !payload) {
+    #ifdef LOGGING
     debug(F("Invalid payload. Ignoring."));
+    #endif
     return false;
   }
   bool stateChanged = false;
@@ -419,16 +477,22 @@ bool ESPDomotic::enableChannel(Channel* c, unsigned char* payload, unsigned int 
       c->enabled = true;
       break;
     default:
+      #ifdef LOGGING
       debug(F("Invalid state"), payload[0]);
+      #endif
       break;
   }
   return stateChanged;
 }
 
 bool ESPDomotic::renameChannel(Channel* c, uint8_t* payload, unsigned int length) {
+  #ifdef LOGGING
   debug(F("Updating channel name"), c->name);
+  #endif
   if (length < 1) {
+    #ifdef LOGGING
     debug(F("Invalid payload"));
+    #endif
     return false;
   }
   char newName[length + 1];
@@ -438,7 +502,9 @@ bool ESPDomotic::renameChannel(Channel* c, uint8_t* payload, unsigned int length
   newName[length] = '\0';
   bool renamed = !String(c->name).equals(String(newName));
   if (renamed) {
+    #ifdef LOGGING
     debug(F("Channel renamed"), newName);
+    #endif
     getMqttClient()->unsubscribe(getChannelTopic(c, "command/+").c_str());
     c->updateName(newName);
     getMqttClient()->subscribe(getChannelTopic(c, "command/+").c_str());
@@ -447,43 +513,61 @@ bool ESPDomotic::renameChannel(Channel* c, uint8_t* payload, unsigned int length
 }
 
 bool ESPDomotic::changeState(Channel* c, uint8_t* payload, unsigned int length) {
+  #ifdef LOGGING
   debug(F("Updating channel state"), c->name);
+  #endif
   if (length < 1) {
+    #ifdef LOGGING
     debug(F("Invalid payload"));
+    #endif
     return false;
   }
   switch (payload[0]) {
     case '0':
       if (c->state == LOW) {
+        #ifdef LOGGING
         debug("State same as before [LOW]");
+        #endif
         return false;
       } else {
+        #ifdef LOGGING
         debug("Changing state to [LOW]");
+        #endif
         c->state = LOW;
         digitalWrite(c->pin, LOW);
         return true;
       }
     case '1':
       if (c->state == HIGH) {
+        #ifdef LOGGING
         debug("State same as before [HIGH]");
+        #endif
         return false;
       } else {
+        #ifdef LOGGING
         debug("Changing state to [HIGH]");
+        #endif
         c->state = HIGH;
         digitalWrite(c->pin, HIGH);
         return true;
       }
      break;
     default:
+      #ifdef LOGGING
       debug(F("Invalid state"), payload[0]);
+      #endif
     return false;
   }
 }
 
 bool ESPDomotic::updateChannelTimer(Channel* c, uint8_t* payload, unsigned int length) {
+  #ifdef LOGGING
   debug(F("Updating irrigation duration for channel"), c->name);
+  #endif
   if (length < 1) {
+    #ifdef LOGGING
     debug(F("Invalid payload"));
+    #endif
     return false;
   }
   char buff[length + 1];
@@ -491,9 +575,13 @@ bool ESPDomotic::updateChannelTimer(Channel* c, uint8_t* payload, unsigned int l
     buff[i] = payload[i];
   }
   buff[length] = '\0';
+  #ifdef LOGGING
   debug(F("New duration for channel"), c->name);
+  #endif
   long newTimer = String(buff).toInt();
+  #ifdef LOGGING
   debug(F("Duration"), newTimer);
+  #endif
   bool timerChanged = c->timer != (unsigned long) newTimer * 60 * 1000;
   c->timer = newTimer * 60 * 1000; // received in minutes set in millis
   return timerChanged;
@@ -511,32 +599,32 @@ void ESPDomotic::saveChannelsSettings () {
       json[String(_channels[i]->id) + "_enabled"] = _channels[i]->enabled;
     }
     json.printTo(file);
+    #ifdef LOGGING
     debug(F("Configuration file saved"));
-    if (_debug) {
-      json.printTo(Serial);
-      Serial.println();
-    }
+    json.printTo(Serial);
+    Serial.println();
+    #endif
     file.close();
   } else {
+    #ifdef LOGGING
     debug(F("Failed to open config file for writing"));
+    #endif
   }
 }
 
+#ifdef LOGGING
 template <class T> void ESPDomotic::debug (T text) {
-  if (_debug) {
-    Serial.print("*DOMO: ");
-    Serial.println(text);
-  }
+  Serial.print("*DOMO: ");
+  Serial.println(text);
 }
 
 template <class T, class U> void ESPDomotic::debug (T key, U value) {
-  if (_debug) {
-    Serial.print("*DOMO: ");
-    Serial.print(key);
-    Serial.print(": ");
-    Serial.println(value);
-  }
+  Serial.print("*DOMO: ");
+  Serial.print(key);
+  Serial.print(": ");
+  Serial.println(value);
 }
+#endif
 
 Channel::Channel(const char* id, const char* name, uint8_t pin, uint8_t pinMode, uint8_t state, uint16_t timer) {
   this->id = id;

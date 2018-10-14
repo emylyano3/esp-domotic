@@ -11,7 +11,6 @@ Channel         _channel("A", "channel_A", D1, OUTPUT, HIGH, 60 * 1000);
 void setup() {
     // mqttModule.setAPStaticIP(IPAddress(10,10,10,10),IPAddress(IPAddress(10,10,10,10)),IPAddress(IPAddress(255,255,255,0)));
     Serial.begin(115200);
-    _domoticModule->setDebugOutput(DEBUG);
     _domoticModule->setModuleType("testModule");
     _domoticModule->setFeedbackPin(FEEDBACK_PIN);
     _domoticModule->setPortalSSID("test-module-ssid");

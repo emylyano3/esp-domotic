@@ -58,8 +58,6 @@ class ESPDomotic {
         void            setPortalSSID(const char* ssid);
         // Sets what type of module is it
         void            setModuleType(const char* mt);
-        // Enables/Disables debugging
-        void            setDebugOutput(bool debug);
         // Sets the pin through wich signal feedback is given to the user (a speaker, led, etc)
         void            setFeedbackPin(uint8_t fp);
         // Returns the name the user gave to the module during configuration
@@ -121,7 +119,6 @@ class ESPDomotic {
         template <class T, class U> void    debug(T key, U value);
 
     private:
-        bool            _debug          = true;
         const char*     _moduleType     = "generic";
         const char*     _apSSID         = NULL;
         uint8_t         _feedbackPin    = _invalidPinNo;
