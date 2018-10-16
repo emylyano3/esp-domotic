@@ -380,7 +380,7 @@ bool ESPDomotic::loadChannelsSettings () {
   return false;
 }
 
-void ESPDomotic::openChannel (Channel* channel) {
+bool ESPDomotic::openChannel (Channel* channel) {
   #ifdef LOGGING
   debug(F("Opening channel"), channel->name);
   #endif
@@ -388,16 +388,18 @@ void ESPDomotic::openChannel (Channel* channel) {
     #ifdef LOGGING
     debug(F("Channel already opened, skipping"));
     #endif
+    return false;
   } else {
     #ifdef LOGGING
     debug("Changing state to [ON]");
     #endif
     digitalWrite(channel->pin, LOW);
     channel->state = LOW;
+    return true;
   }
 }
 
-void ESPDomotic::closeChannel (Channel* channel) {
+bool ESPDomotic::closeChannel (Channel* channel) {
   #ifdef LOGGING
   debug(F("Closing channel"), channel->name);
   #endif
@@ -405,12 +407,14 @@ void ESPDomotic::closeChannel (Channel* channel) {
     #ifdef LOGGING
     debug(F("Channel already closed, skipping"));
     #endif
+    return false;
   } else {
     #ifdef LOGGING
     debug("Changing state to [OFF]");
     #endif
     digitalWrite(channel->pin, HIGH);
     channel->state = HIGH;
+    return true;
   }
 }
 
@@ -530,10 +534,9 @@ bool ESPDomotic::changeState(Channel* channel, uint8_t* payload, unsigned int le
   }
   switch (payload[0]) {
     case '0':
-      closeChannel(channel);
+      return closeChannel(channel);
     case '1':
-      openChannel(channel);
-      break;
+      return openChannel(channel);
     default:
       #ifdef LOGGING
       debug(F("Invalid state"), payload[0]);

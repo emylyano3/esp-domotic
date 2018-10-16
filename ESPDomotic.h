@@ -92,9 +92,9 @@ class ESPDomotic {
         // Save the channel settings in FS
         void            saveChannelsSettings ();
         // Sets the channel's state lo HIGH
-        void            openChannel (Channel* c);
+        bool            openChannel (Channel* c);
         // Sets the channel's state lo LOW
-        void            closeChannel (Channel* c);
+        bool            closeChannel (Channel* c);
         // Adds new channel to manage
         void            addChannel(Channel* c);
         // Returns the mqtt topic to which a channel may be subscribed
