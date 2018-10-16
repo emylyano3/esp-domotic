@@ -73,13 +73,13 @@ void ESPDomotic::init() {
     Serial.printf("Setting pin %d of channel %s in %s mode\n", _channels[i]->pin, _channels[i]->name, _channels[i]->pinMode == OUTPUT ? "OUTPUT" : "INPUT");
     #endif
     pinMode(_channels[i]->pin, _channels[i]->pinMode);
-    digitalWrite(_channels[i]->pin, HIGH);
-    #ifdef LOGGING
-    debug(F("Configuring MQTT broker"));
-    debug(F("HOST"), getMqttServerHost());
-    debug(F("PORT"), getMqttServerPort());
-    #endif
+    digitalWrite(_channels[i]->pin, _channels[i]->state);
   }
+  #ifdef LOGGING
+  debug(F("Configuring MQTT broker"));
+  debug(F("HOST"), getMqttServerHost());
+  debug(F("PORT"), getMqttServerPort());
+  #endif
   _mqttClient.setServer(getMqttServerHost(), getMqttServerPort());
   _mqttClient.setCallback(std::bind(&ESPDomotic::receiveMqttMessage, this, std::placeholders::_1, std::placeholders::_2, std::placeholders::_3));
   loadChannelsSettings();
