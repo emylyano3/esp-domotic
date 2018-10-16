@@ -611,13 +611,30 @@ template <class T, class U> void ESPDomotic::debug (T key, U value) {
 }
 #endif
 
+Channel::Channel(const char* id, const char* name, uint8_t pin, uint8_t pinMode, uint8_t state) {
+  init(id, name, pin, pinMode, state, -1, NULL);
+}
+
 Channel::Channel(const char* id, const char* name, uint8_t pin, uint8_t pinMode, uint8_t state, uint16_t timer) {
+  init(id, name, pin, pinMode, state, timer, NULL);
+}
+
+Channel::Channel(const char* id, const char* name, uint8_t pin, uint8_t pinMode, uint8_t state, Channel *slave) {
+  init(id, name, pin, pinMode, state, -1, slave);
+}
+
+Channel::Channel(const char* id, const char* name, uint8_t pin, uint8_t pinMode, uint8_t state, uint16_t timer, Channel *slave) {
+  init(id, name, pin, pinMode, state, timer, slave);
+}
+
+void Channel::init(const char* id, const char* name, uint8_t pin, uint8_t pinMode, uint8_t state, uint16_t timer, Channel *slave) {
   this->id = id;
   this->pin = pin;
   this->state = state;
   this->timer = timer;
   this->enabled = true;
   this->pinMode = pinMode;
+  this->slave = slave;
   this->name = new char[_channelNameMaxLength + 1];
   updateName(name);
 }
