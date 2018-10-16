@@ -444,7 +444,7 @@ void ESPDomotic::receiveMqttMessage(char* topic, uint8_t* payload, unsigned int 
         // command/state topic is used to change the state on the channel with a desired value. So, receiving a mqtt
         // message with this purpose has sense only if the channel is an output one.
         changeState(channel, payload, length);
-        getMqttClient()->publish(getChannelTopic(channel, "feedback/state").c_str(), channel->state == HIGH ? "1" : "0");
+        getMqttClient()->publish(getChannelTopic(channel, "feedback/state").c_str(), channel->state == LOW ? "1" : "0");
       }
     }
   }
