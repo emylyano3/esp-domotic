@@ -70,7 +70,7 @@ void ESPDomotic::init() {
   #endif
   for (int i = 0; i < _channelsCount; ++i) {
     #ifdef LOGGING
-    Serial.printf("Setting pin %d of channel %s in %s mode\n", _channels[i]->pin, _channels[i]->name, _channels[i]->pinMode == OUTPUT ? "OUTPUT" : "INPUT");
+    Serial.printf("Setting pin %d of channel %s to %s mode\n", _channels[i]->pin, _channels[i]->name, _channels[i]->pinMode == OUTPUT ? "OUTPUT" : "INPUT");
     #endif
     pinMode(_channels[i]->pin, _channels[i]->pinMode);
     digitalWrite(_channels[i]->pin, _channels[i]->state);
