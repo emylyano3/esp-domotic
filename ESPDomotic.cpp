@@ -126,9 +126,9 @@ void ESPDomotic::setPortalSSID (const char* ssid) {
   _apSSID = ssid;
 }
 
-void ESPDomotic::addChannel(Channel *c) {
+void ESPDomotic::addChannel(Channel *channel) {
   if (_channelsCount < _channelsMax) {
-    _channels[_channelsCount++] = c;
+    _channels[_channelsCount++] = channel;
   } else {
     #ifdef LOGGING
     debug(F("No more channels suported"));
@@ -275,8 +275,8 @@ void ESPDomotic::connectBroker() {
   }
 }
 
-String ESPDomotic::getChannelTopic (Channel *c, String suffix) {
-  return String(getModuleType()) + F("/") + getModuleLocation() + F("/") + getModuleName() + F("/") + c->name + F("/") + suffix;
+String ESPDomotic::getChannelTopic (Channel *channel, String suffix) {
+  return String(getModuleType()) + F("/") + getModuleLocation() + F("/") + getModuleName() + F("/") + channel->name + F("/") + suffix;
 }
 
 String ESPDomotic::getStationTopic (String suffix) {
@@ -380,31 +380,37 @@ bool ESPDomotic::loadChannelsSettings () {
   return false;
 }
 
-void ESPDomotic::openChannel (Channel* c) {
+void ESPDomotic::openChannel (Channel* channel) {
   #ifdef LOGGING
-  debug(F("Opening channel"), c->name);
+  debug(F("Opening channel"), channel->name);
   #endif
-  if (c->state == LOW) {
+  if (channel->state == LOW) {
     #ifdef LOGGING
-    debug(F("Valve already opened, skipping"));
+    debug(F("Channel already opened, skipping"));
     #endif
   } else {
-    digitalWrite(c->pin, LOW);
-    c->state = LOW;
+    #ifdef LOGGING
+    debug("Changing state to [ON]");
+    #endif
+    digitalWrite(channel->pin, LOW);
+    channel->state = LOW;
   }
 }
 
-void ESPDomotic::closeChannel (Channel* c) {
+void ESPDomotic::closeChannel (Channel* channel) {
   #ifdef LOGGING
-  debug(F("Closing channel"), c->name);
+  debug(F("Closing channel"), channel->name);
   #endif
-  if (c->state == HIGH) {
+  if (channel->state == HIGH) {
     #ifdef LOGGING
-    debug(F("Valve already closed, skipping"));
+    debug(F("Channel already closed, skipping"));
     #endif
   } else {
-    digitalWrite(c->pin, HIGH);
-    c->state = HIGH;
+    #ifdef LOGGING
+    debug("Changing state to [OFF]");
+    #endif
+    digitalWrite(channel->pin, HIGH);
+    channel->state = HIGH;
   }
 }
 
@@ -416,25 +422,25 @@ void ESPDomotic::receiveMqttMessage(char* topic, uint8_t* payload, unsigned int 
     moduleHardReset();
   } else {
     for (size_t i = 0; i < getChannelsCount(); ++i) {
-      Channel *c = getChannel(i);
-      if (getChannelTopic(c, "command/enable").equals(topic)) {
-        if (enableChannel(c, payload, length)) {
+      Channel *channel = getChannel(i);
+      if (getChannelTopic(channel, "command/enable").equals(topic)) {
+        if (enableChannel(channel, payload, length)) {
           saveChannelsSettings();
         }
-        getMqttClient()->publish(getChannelTopic(c, "feedback/enabled").c_str(), c->enabled ? "1" : "0");
-      } else if (getChannelTopic(c, "command/timer").equals(topic)) {
-        if (updateChannelTimer(c, payload, length)) {
+        getMqttClient()->publish(getChannelTopic(channel, "feedback/enabled").c_str(), channel->enabled ? "1" : "0");
+      } else if (getChannelTopic(channel, "command/timer").equals(topic)) {
+        if (updateChannelTimer(channel, payload, length)) {
           saveChannelsSettings();
         }
-      } else if (getChannelTopic(c, "command/rename").equals(topic)) {
-        if (renameChannel(c, payload, length)) {
+      } else if (getChannelTopic(channel, "command/rename").equals(topic)) {
+        if (renameChannel(channel, payload, length)) {
           saveChannelsSettings();
         }
-      } else if (c->pinMode == OUTPUT && getChannelTopic(c, "command/state").equals(topic)) {
+      } else if (channel->pinMode == OUTPUT && getChannelTopic(channel, "command/state").equals(topic)) {
         // command/state topic is used to change the state on the channel with a desired value. So, receiving a mqtt
         // message with this purpose has sense only if the channel is an output one.
-        changeState(c, payload, length);
-        getMqttClient()->publish(getChannelTopic(c, "feedback/state").c_str(), c->state == HIGH ? "1" : "0");
+        changeState(channel, payload, length);
+        getMqttClient()->publish(getChannelTopic(channel, "feedback/state").c_str(), channel->state == HIGH ? "1" : "0");
       }
     }
   }
@@ -456,9 +462,9 @@ void ESPDomotic::moduleHardReset () {
   ESP.restart();
 }
 
-bool ESPDomotic::enableChannel(Channel* c, unsigned char* payload, unsigned int length) {
+bool ESPDomotic::enableChannel(Channel* channel, unsigned char* payload, unsigned int length) {
   #ifdef LOGGING
-  debug(F("Ubpading channel enablement"), c->name);
+  debug(F("Ubpading channel enablement"), channel->name);
   #endif
   if (length != 1 || !payload) {
     #ifdef LOGGING
@@ -469,12 +475,12 @@ bool ESPDomotic::enableChannel(Channel* c, unsigned char* payload, unsigned int 
   bool stateChanged = false;
   switch (payload[0]) {
     case '0':
-      stateChanged = c->enabled;
-      c->enabled = false;
+      stateChanged = channel->enabled;
+      channel->enabled = false;
       break;
     case '1':
-      stateChanged = !c->enabled;
-      c->enabled = true;
+      stateChanged = !channel->enabled;
+      channel->enabled = true;
       break;
     default:
       #ifdef LOGGING
@@ -485,9 +491,9 @@ bool ESPDomotic::enableChannel(Channel* c, unsigned char* payload, unsigned int 
   return stateChanged;
 }
 
-bool ESPDomotic::renameChannel(Channel* c, uint8_t* payload, unsigned int length) {
+bool ESPDomotic::renameChannel(Channel* channel, uint8_t* payload, unsigned int length) {
   #ifdef LOGGING
-  debug(F("Updating channel name"), c->name);
+  debug(F("Updating channel name"), channel->name);
   #endif
   if (length < 1) {
     #ifdef LOGGING
@@ -500,21 +506,21 @@ bool ESPDomotic::renameChannel(Channel* c, uint8_t* payload, unsigned int length
     newName[i] = payload[i];
   }
   newName[length] = '\0';
-  bool renamed = !String(c->name).equals(String(newName));
+  bool renamed = !String(channel->name).equals(String(newName));
   if (renamed) {
     #ifdef LOGGING
     debug(F("Channel renamed"), newName);
     #endif
-    getMqttClient()->unsubscribe(getChannelTopic(c, "command/+").c_str());
-    c->updateName(newName);
-    getMqttClient()->subscribe(getChannelTopic(c, "command/+").c_str());
+    getMqttClient()->unsubscribe(getChannelTopic(channel, "command/+").c_str());
+    channel->updateName(newName);
+    getMqttClient()->subscribe(getChannelTopic(channel, "command/+").c_str());
   }
   return renamed;
 }
 
-bool ESPDomotic::changeState(Channel* c, uint8_t* payload, unsigned int length) {
+bool ESPDomotic::changeState(Channel* channel, uint8_t* payload, unsigned int length) {
   #ifdef LOGGING
-  debug(F("Updating channel state"), c->name);
+  debug(F("Updating channel state"), channel->name);
   #endif
   if (length < 1) {
     #ifdef LOGGING
@@ -524,34 +530,10 @@ bool ESPDomotic::changeState(Channel* c, uint8_t* payload, unsigned int length) 
   }
   switch (payload[0]) {
     case '0':
-      if (c->state == LOW) {
-        #ifdef LOGGING
-        debug("State same as before [LOW]");
-        #endif
-        return false;
-      } else {
-        #ifdef LOGGING
-        debug("Changing state to [LOW]");
-        #endif
-        c->state = LOW;
-        digitalWrite(c->pin, LOW);
-        return true;
-      }
+      closeChannel(channel);
     case '1':
-      if (c->state == HIGH) {
-        #ifdef LOGGING
-        debug("State same as before [HIGH]");
-        #endif
-        return false;
-      } else {
-        #ifdef LOGGING
-        debug("Changing state to [HIGH]");
-        #endif
-        c->state = HIGH;
-        digitalWrite(c->pin, HIGH);
-        return true;
-      }
-     break;
+      openChannel(channel);
+      break;
     default:
       #ifdef LOGGING
       debug(F("Invalid state"), payload[0]);
@@ -560,9 +542,9 @@ bool ESPDomotic::changeState(Channel* c, uint8_t* payload, unsigned int length) 
   }
 }
 
-bool ESPDomotic::updateChannelTimer(Channel* c, uint8_t* payload, unsigned int length) {
+bool ESPDomotic::updateChannelTimer(Channel* channel, uint8_t* payload, unsigned int length) {
   #ifdef LOGGING
-  debug(F("Updating irrigation duration for channel"), c->name);
+  debug(F("Updating irrigation duration for channel"), channel->name);
   #endif
   if (length < 1) {
     #ifdef LOGGING
@@ -576,14 +558,14 @@ bool ESPDomotic::updateChannelTimer(Channel* c, uint8_t* payload, unsigned int l
   }
   buff[length] = '\0';
   #ifdef LOGGING
-  debug(F("New duration for channel"), c->name);
+  debug(F("New duration for channel"), channel->name);
   #endif
   long newTimer = String(buff).toInt();
   #ifdef LOGGING
   debug(F("Duration"), newTimer);
   #endif
-  bool timerChanged = c->timer != (unsigned long) newTimer * 60 * 1000;
-  c->timer = newTimer * 60 * 1000; // received in minutes set in millis
+  bool timerChanged = channel->timer != (unsigned long) newTimer * 60 * 1000;
+  channel->timer = newTimer * 60 * 1000; // received in minutes set in millis
   return timerChanged;
 }
 
