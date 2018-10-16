@@ -56,6 +56,7 @@ void ESPDomotic::init() {
   _moduleConfig.setStationNameCallback(std::bind(&ESPDomotic::getStationName, this));
   _moduleConfig.setSaveConfigCallback(std::bind(&ESPDomotic::saveConfig, this));
   if (_feedbackPin != _invalidPinNo) {
+    pinMode(_feedbackPin, OUTPUT);
     _moduleConfig.setFeedbackPin(_feedbackPin);
   }
   _moduleConfig.connectWifiNetwork(loadConfig());
