@@ -74,7 +74,11 @@ void ESPDomotic::init() {
     Serial.printf("Setting pin %d of channel %s to %s mode\n", _channels[i]->pin, _channels[i]->name, _channels[i]->pinMode == OUTPUT ? "OUTPUT" : "INPUT");
     #endif
     pinMode(_channels[i]->pin, _channels[i]->pinMode);
-    digitalWrite(_channels[i]->pin, _channels[i]->state);
+    if (_channels[i]->pinMode == OUTPUT) {
+      digitalWrite(_channels[i]->pin, _channels[i]->state);
+    } else {
+      _channels[i]->state = digitalRead(_channels[i]->pin);
+    }
   }
   #ifdef LOGGING
   debug(F("Configuring MQTT broker"));
