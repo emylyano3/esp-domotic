@@ -1,11 +1,11 @@
 {
-  "name": "MQTTModule",
+  "name": "ESP-Domotic",
   "keywords": "wifi, wi-fi",
-  "description": "ESP8266 MQTT generic module application",
+  "description": "ESP8266 generic library to build applications for domotics purposes",
   "repository":
   {
     "type": "git",
-    "url": "https://github.com/emylyano3/mqtt-module"
+    "url": "https://github.com/emylyano3/esp-domotic.git"
   },
   "frameworks": "arduino",
   "platforms": "espressif8266",
