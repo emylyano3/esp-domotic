@@ -2,11 +2,13 @@
 #include <ESPDomotic.h>
 #include <ESPConfig.h>
 
-#include <ESP8266mDNS.h>
 #include <ESP8266WebServer.h>
 #include <ESP8266HTTPUpdateServer.h>
 
+#ifndef ESP01
+#include <ESP8266mDNS.h>
 #include <ArduinoJson.h>
+#endif
 
 /* Config params */
 ESPConfigParam            _mqttPort (Text, "mqttPort", "MQTT port", "", _paramPortValueLength, "required");
@@ -92,8 +94,10 @@ void ESPDomotic::init() {
   #ifdef LOGGING
   debug(F("Setting OTA update"));
   #endif
+  #ifndef ESP01
   MDNS.begin(getStationName());
   MDNS.addService("http", "tcp", 80);
+  #endif
   _httpUpdater.setup(&_httpServer);
   _httpServer.begin();
   #ifdef LOGGING
@@ -210,7 +214,6 @@ size_t ESPDomotic::getFileSize (const char* fileName) {
         file.close();
         return s;
       } else {
-        file.close();
         #ifdef LOGGING
         debug(F("Cant open file"), fileName);
         #endif
@@ -291,15 +294,12 @@ String ESPDomotic::getStationTopic (String suffix) {
 bool ESPDomotic::loadConfig () {
   size_t size = getFileSize("/config.json");
   if (size > 0) {
+    #ifndef ESP01
     char buff[size];
     loadFile("/config.json", buff, size);
     DynamicJsonBuffer jsonBuffer;
     JsonObject& json = jsonBuffer.parseObject(buff);
     if (json.success()) {
-      // for (uint8_t i = 0; i < PARAMS_COUNT; ++i) {
-      //   _moduleConfig.getParameter(i)->updateValue(json[_moduleConfig.getParameter(i)->getName()]);
-      //   debug(_moduleConfig.getParameter(i)->getName(), _moduleConfig.getParameter(i)->getValue());
-      // }
       _mqttHost.updateValue(json[_mqttHost.getName()]);
       _mqttPort.updateValue(json[_mqttPort.getName()]);
       _moduleLocation.updateValue(json[_moduleLocation.getName()]);
@@ -313,7 +313,47 @@ bool ESPDomotic::loadConfig () {
       #ifdef LOGGING
       debug(F("Failed to load json config"));
       #endif
+      return false;
     }
+    #else
+    // Avoid using json to reduce build size
+    File configFile = SPIFFS.open("/config.json", "r");
+    bool readOK = true;
+    while (readOK && configFile.position() < size) {
+      String line = configFile.readStringUntil('\n');
+      line.trim();
+      size_t ioc = line.indexOf('=');
+      if (ioc >= 0 && ioc + 1 < line.length()) {
+        String key = line.substring(0, ioc++);
+        String val = line.substring(ioc, line.length());
+        #ifdef LOGGING
+        debug("Read key", key);
+        debug("Key value", val);
+        #endif
+        if (key.equals(_mqttPort.getName())) {
+          _mqttPort.updateValue(val.c_str());
+        } else if (key.equals(_mqttHost.getName())) {
+          _mqttHost.updateValue(val.c_str());
+        } else if (key.equals(_moduleLocation.getName())) {
+          _moduleLocation.updateValue(val.c_str());
+        } else if (key.equals(_moduleName.getName())) {
+          _moduleName.updateValue(val.c_str());
+        } else {
+          #ifdef LOGGING
+          debug("ERROR. Unknown key");
+          #endif
+          readOK = false;
+        }
+      } else {
+        #ifdef LOGGING
+        debug("Config bad format", line);
+        #endif
+        readOK = false;
+      }
+    }
+    configFile.close();
+    return readOK;
+    #endif
   }
   return false;
 }
@@ -322,12 +362,10 @@ bool ESPDomotic::loadConfig () {
 void ESPDomotic::saveConfig () {
   File file = SPIFFS.open("/config.json", "w");
   if (file) {
+    #ifndef ESP01
     DynamicJsonBuffer jsonBuffer;
     JsonObject& json = jsonBuffer.createObject();
     //TODO Trim param values
-    // for (uint8_t i = 0; i < PARAMS_COUNT; ++i) {
-    //   json[_moduleConfig.getParameter(i)->getName()] = _moduleConfig.getParameter(i)->getValue();
-    // }
     json[_mqttHost.getName()] = _mqttHost.getValue();
     json[_mqttPort.getName()] = _mqttPort.getValue();
     json[_moduleLocation.getName()] = _moduleLocation.getValue();
@@ -337,6 +375,16 @@ void ESPDomotic::saveConfig () {
     debug(F("Configuration file saved"));
     json.printTo(Serial);
     Serial.println();
+    #endif
+    #else
+    String line = String(_mqttHost.getName()) + "=" + String(_mqttHost.getValue());
+    file.println(line);
+    line = String(_mqttPort.getName()) + "=" + String(_mqttPort.getValue());
+    file.println(line);
+    line = String(_moduleLocation.getName()) + "=" + String(_moduleLocation.getValue());
+    file.println(line);
+    line = String(_moduleName.getName()) + "=" + String(_moduleName.getValue());
+    file.println(line);
     #endif
     file.close();
   } else {
@@ -350,6 +398,7 @@ bool ESPDomotic::loadChannelsSettings () {
   if (_channelsCount > 0) {
     size_t size = getFileSize("/settings.json");
     if (size > 0) {
+      #ifndef ESP01
       char buff[size];
       loadFile("/settings.json", buff, size);
       DynamicJsonBuffer jsonBuffer;
@@ -375,14 +424,88 @@ bool ESPDomotic::loadChannelsSettings () {
         #ifdef LOGGING
         debug(F("Failed to load json"));
         #endif
+        return false;
       }
+      #else
+      // Avoid using json to reduce build size
+      File configFile = SPIFFS.open("/settings.json", "r");
+      bool readOK = true;
+      while (readOK && configFile.position() < size) {
+        String line = configFile.readStringUntil('\n');
+        line.trim();
+        size_t ioc = line.indexOf('=');
+        if (ioc >= 0 && ioc + 1 < line.length()) {
+          String key = line.substring(0, ioc++);
+          String val = line.substring(ioc, line.length());
+          #ifdef LOGGING
+          debug("Read key", key);
+          debug("Key value", val);
+          #endif
+          for (uint8_t i = 0; i < _channelsCount; ++i) {
+            if (key.startsWith(String(_channels[i]->id) + "_")) {
+              if (key.endsWith("name")) {
+                _channels[i]->updateName(val.c_str());
+              } else if (key.endsWith("timer")) {
+                _channels[i]->timer = val.toInt();
+              } else if (key.endsWith("enabled")) {
+                _channels[i]->enabled = val.equals("1");
+              }
+            } 
+          }
+        } else {
+          #ifdef LOGGING
+          debug("Config bad format", line);
+          #endif
+          readOK = false;
+        }
+      }
+      configFile.close();
+      return readOK;
+      #endif
     }
+    return false;
   } else {
     #ifdef LOGGING
     debug(F("No channel configured"));
     #endif
+    return false;
   }
-  return false;
+}
+
+void ESPDomotic::saveChannelsSettings () {
+  File file = SPIFFS.open("/settings.json", "w");
+  if (file) {
+    #ifndef ESP01
+    DynamicJsonBuffer jsonBuffer;
+    JsonObject& json = jsonBuffer.createObject();
+    //TODO Trim param values
+    for (uint8_t i = 0; i < _channelsCount; ++i) {
+      json[String(_channels[i]->id) + "_name"] = _channels[i]->name;
+      json[String(_channels[i]->id) + "_timer"] = _channels[i]->timer;
+      json[String(_channels[i]->id) + "_enabled"] = _channels[i]->enabled;
+    }
+    json.printTo(file);
+    #ifdef LOGGING
+    debug(F("Configuration file saved"));
+    json.printTo(Serial);
+    Serial.println();
+    #endif
+    #else
+    for (uint8_t i = 0; i > _channelsCount; ++i) {
+      String line = String(_channels[i]->id) + "_name=" + String(_channels[i]->name);
+      file.println(line);
+      line = String(_channels[i]->id) + "_timer=" + String(_channels[i]->timer);
+      file.println(line);
+      line = String(_channels[i]->id) + "_enabled=" + String(_channels[i]->enabled);
+      file.println(line);
+    }
+    #endif
+    file.close();
+  } else {
+    #ifdef LOGGING
+    debug(F("Failed to open config file for writing"));
+    #endif
+  }
 }
 
 bool ESPDomotic::openChannel (Channel* channel) {
@@ -575,31 +698,6 @@ bool ESPDomotic::updateChannelTimer(Channel* channel, uint8_t* payload, unsigned
   bool timerChanged = channel->timer != (unsigned long) newTimer * 60 * 1000;
   channel->timer = newTimer * 60 * 1000; // received in minutes set in millis
   return timerChanged;
-}
-
-void ESPDomotic::saveChannelsSettings () {
-  File file = SPIFFS.open("/settings.json", "w");
-  if (file) {
-    DynamicJsonBuffer jsonBuffer;
-    JsonObject& json = jsonBuffer.createObject();
-    //TODO Trim param values
-    for (uint8_t i = 0; i < _channelsCount; ++i) {
-      json[String(_channels[i]->id) + "_name"] = _channels[i]->name;
-      json[String(_channels[i]->id) + "_timer"] = _channels[i]->timer;
-      json[String(_channels[i]->id) + "_enabled"] = _channels[i]->enabled;
-    }
-    json.printTo(file);
-    #ifdef LOGGING
-    debug(F("Configuration file saved"));
-    json.printTo(Serial);
-    Serial.println();
-    #endif
-    file.close();
-  } else {
-    #ifdef LOGGING
-    debug(F("Failed to open config file for writing"));
-    #endif
-  }
 }
 
 #ifdef LOGGING
