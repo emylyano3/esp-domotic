@@ -12,4 +12,4 @@ It acts like a generic entry point giving simple access to some key functionalit
 
 To compile project in PlatformIO CLI:
 
-> pio ci .\examples\ --project-conf .\project-conf\platformio.ini --lib=.
+> pio ci .\examples\* --project-conf .\project-conf\platformio.ini --lib=.
