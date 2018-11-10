@@ -1,6 +1,6 @@
 {
-  "name": "ESP-Domotic",
-  "keywords": "wifi, wi-fi",
+  "name": "ESPDomotic",
+  "keywords": "domotic",
   "description": "ESP8266 generic library to build applications for domotics purposes",
   "repository":
   {
