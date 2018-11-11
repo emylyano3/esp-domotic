@@ -3,6 +3,7 @@
 
 #include <Arduino.h>
 #include <PubSubClient.h>
+#include <ESP8266WebServer.h>
 
 const uint8_t       _invalidPinNo                 = 255;
 const unsigned long _wifiConnectTimeout           = 5000;
@@ -63,35 +64,38 @@ class ESPDomotic {
 
         /* Module settings */
         // Sets the SSID for the configuration portal (When module enters in AP mode)
-        void            setPortalSSID(const char* ssid);
+        void                setPortalSSID(const char* ssid);
         // Sets what type of module is it
-        void            setModuleType(const char* mt);
+        void                setModuleType(const char* mt);
         // Sets the pin through wich signal feedback is given to the user (a speaker, led, etc)
-        void            setFeedbackPin(uint8_t fp);
+        void                setFeedbackPin(uint8_t fp);
         // Returns the name the user gave to the module during configuration
-        const char*     getModuleName();
+        const char*         getModuleName();
         // Returns the location name the user gave to the module during configuration
-        const char*     getModuleLocation();
+        const char*         getModuleLocation();
         // Returns the module type
-        const char*     getModuleType();
+        const char*         getModuleType();
         // Returns the name wich the module is subscribed to the AP
-        const char*     getStationName();
+        const char*         getStationName();
         // Resets the module and erases persisted data & wifi settings (factory restore)
-        void            moduleHardReset ();
+        void                moduleHardReset ();
         
         /* MQTT */
         // Sets the callback to be called just after the connection to mqtt broker has been stablished
-        void            setMqttConnectionCallback(std::function<void()> callback);
+        void                setMqttConnectionCallback(std::function<void()> callback);
         // Sets the callback used to tell that a message was received via mqtt
-        void            setMqttMessageCallback(std::function<void(char*, uint8_t*, unsigned int)> callback);
+        void                setMqttMessageCallback(std::function<void(char*, uint8_t*, unsigned int)> callback);
         // Returns the mqtt host the user configured
-        const char*     getMqttServerHost();
+        const char*         getMqttServerHost();
         // Returns the mqtt port the user configured
-        uint16_t        getMqttServerPort();
+        uint16_t            getMqttServerPort();
         // Returns the inner mqtt client
-        PubSubClient*   getMqttClient();
-        String          getStationTopic (String cmd);
-        
+        PubSubClient*       getMqttClient();
+        String              getStationTopic (String cmd);
+
+        /*HTTP Server*/
+        ESP8266WebServer*   getHttpServer();
+
         /* Channels */
         // Returns the i'th  channel
         Channel         *getChannel(uint8_t i);

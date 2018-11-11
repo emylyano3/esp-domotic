@@ -2,7 +2,6 @@
 #include <ESPDomotic.h>
 #include <ESPConfig.h>
 
-#include <ESP8266WebServer.h>
 #include <ESP8266HTTPUpdateServer.h>
 
 #ifndef ESP01
@@ -193,6 +192,10 @@ const char* ESPDomotic::getStationName () {
 
 PubSubClient* ESPDomotic::getMqttClient() {
   return &_mqttClient;
+}
+
+ESP8266WebServer* ESPDomotic::getHttpServer() {
+  return &_httpServer;
 }
 
 /*
