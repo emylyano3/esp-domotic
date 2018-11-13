@@ -46,7 +46,8 @@ void ESPDomotic::init() {
   _moduleConfig.addParameter(&_moduleName);
   _moduleConfig.addParameter(&_mqttHost);
   _moduleConfig.addParameter(&_mqttPort);
-  _moduleConfig.setConnectionTimeout(_wifiConnectTimeout);
+  _moduleConfig.setWifiConnectTimeout(_wifiConnectTimeout);
+  _moduleConfig.setAPStaticIP(IPAddress(10,10,10,10),IPAddress(IPAddress(10,10,10,10)),IPAddress(IPAddress(255,255,255,0)));
   if (_apSSID) {
     _moduleConfig.setPortalSSID(_apSSID);
   } else {
@@ -68,7 +69,7 @@ void ESPDomotic::init() {
     _moduleConfig.blockingFeedback(_feedbackPin, 100, 8);
   }
   #ifdef LOGGING
-  debug("Setting channels pin mode. Channels count", _channelsCount);
+  debug(F("Setting channels pin mode. Channels count"), _channelsCount);
   #endif
   for (int i = 0; i < _channelsCount; ++i) {
     #ifdef LOGGING
@@ -330,8 +331,8 @@ bool ESPDomotic::loadConfig () {
         String key = line.substring(0, ioc++);
         String val = line.substring(ioc, line.length());
         #ifdef LOGGING
-        debug("Read key", key);
-        debug("Key value", val);
+        debug(F("Read key"), key);
+        debug(F("Key value"), val);
         #endif
         if (key.equals(_mqttPort.getName())) {
           _mqttPort.updateValue(val.c_str());
@@ -343,13 +344,13 @@ bool ESPDomotic::loadConfig () {
           _moduleName.updateValue(val.c_str());
         } else {
           #ifdef LOGGING
-          debug("ERROR. Unknown key");
+          debug(F("ERROR. Unknown key"));
           #endif
           readOK = false;
         }
       } else {
         #ifdef LOGGING
-        debug("Config bad format", line);
+        debug(F("Config bad format"), line);
         #endif
         readOK = false;
       }
@@ -441,8 +442,8 @@ bool ESPDomotic::loadChannelsSettings () {
           String key = line.substring(0, ioc++);
           String val = line.substring(ioc, line.length());
           #ifdef LOGGING
-          debug("Read key", key);
-          debug("Key value", val);
+          debug(F("Read key"), key);
+          debug(F("Key value"), val);
           #endif
           for (uint8_t i = 0; i < _channelsCount; ++i) {
             if (key.startsWith(String(_channels[i]->id) + "_")) {
@@ -457,7 +458,7 @@ bool ESPDomotic::loadChannelsSettings () {
           }
         } else {
           #ifdef LOGGING
-          debug("Config bad format", line);
+          debug(F("Config bad format"), line);
           #endif
           readOK = false;
         }
@@ -522,7 +523,7 @@ bool ESPDomotic::openChannel (Channel* channel) {
     return false;
   } else {
     #ifdef LOGGING
-    debug("Changing state to [ON]");
+    debug(F("Changing state to [ON]"));
     #endif
     digitalWrite(channel->pin, LOW);
     channel->state = LOW;
@@ -541,7 +542,7 @@ bool ESPDomotic::closeChannel (Channel* channel) {
     return false;
   } else {
     #ifdef LOGGING
-    debug("Changing state to [OFF]");
+    debug(F("Changing state to [OFF]"));
     #endif
     digitalWrite(channel->pin, HIGH);
     channel->state = HIGH;
@@ -551,7 +552,7 @@ bool ESPDomotic::closeChannel (Channel* channel) {
 
 void ESPDomotic::receiveMqttMessage(char* topic, uint8_t* payload, unsigned int length) {
   #ifdef LOGGING
-  debug("MQTT message received on topic", topic);
+  debug(F("MQTT message received on topic"), topic);
   #endif
   if (String(topic).equals(getStationTopic("command/hrst"))) {
     moduleHardReset();
@@ -581,7 +582,7 @@ void ESPDomotic::receiveMqttMessage(char* topic, uint8_t* payload, unsigned int 
   }
   if (_mqttMessageCallback) {
     #ifdef LOGGING
-    debug("Passing mqtt callback to user");
+    debug(F("Passing mqtt callback to user"));
     #endif
     _mqttMessageCallback(topic, payload, length);
   }

@@ -6,8 +6,8 @@
 #include <ESP8266WebServer.h>
 
 const uint8_t       _invalidPinNo                 = 255;
-const unsigned long _wifiConnectTimeout           = 5000;
-const unsigned long _mqttBrokerReconnectionRetry  = 5000;
+const unsigned long _wifiConnectTimeout           = 30 * 1000;
+const unsigned long _mqttBrokerReconnectionRetry  = 5  * 1000;
 const uint8_t       _wifiMinSignalQuality         = 30;
 const uint8_t       _channelNameMaxLength         = 20;
 const uint8_t       _paramValueMaxLength          = 20;
