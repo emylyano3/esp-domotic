@@ -10,8 +10,10 @@
 #endif
 
 /* Config params */
+#ifndef MQTT_OFF
 ESPConfigParam            _mqttPort (Text, "mqttPort", "MQTT port", "", _paramPortValueLength, "required");
 ESPConfigParam            _mqttHost (Text, "mqttHost", "MQTT host", "", _paramIPValueLength, "required");
+#endif
 ESPConfigParam            _moduleName (Text, "moduleName", "Module name", "", _paramValueMaxLength, "required");
 ESPConfigParam            _moduleLocation (Text, "moduleLocation", "Module location", "", _paramValueMaxLength, "required");
 
@@ -19,11 +21,14 @@ ESPConfigParam            _moduleLocation (Text, "moduleLocation", "Module locat
 ESP8266WebServer          _httpServer(80);
 ESP8266HTTPUpdateServer   _httpUpdater;
 
-/* MQTT client */
 WiFiClient                _wifiClient;
+
+#ifndef MQTT_OFF
+/* MQTT client */
 PubSubClient              _mqttClient(_wifiClient);
 /* MQTT broker reconnection control */
 unsigned long             _mqttNextConnAtte     = 0;
+#endif 
 
 char                      _stationName[_paramValueMaxLength * 3 + 4];
 
@@ -44,8 +49,10 @@ void ESPDomotic::init() {
   ESPConfig _moduleConfig;
   _moduleConfig.addParameter(&_moduleLocation);
   _moduleConfig.addParameter(&_moduleName);
+  #ifndef MQTT_OFF
   _moduleConfig.addParameter(&_mqttHost);
   _moduleConfig.addParameter(&_mqttPort);
+  #endif
   _moduleConfig.setWifiConnectTimeout(_wifiConnectTimeout);
   _moduleConfig.setAPStaticIP(IPAddress(10,10,10,10),IPAddress(IPAddress(10,10,10,10)),IPAddress(IPAddress(255,255,255,0)));
   if (_apSSID) {
@@ -82,6 +89,7 @@ void ESPDomotic::init() {
       _channels[i]->state = digitalRead(_channels[i]->pin);
     }
   }
+  #ifndef MQTT_OFF
   #ifdef LOGGING
   debug(F("Configuring MQTT broker"));
   debug(F("HOST"), getMqttServerHost());
@@ -89,6 +97,7 @@ void ESPDomotic::init() {
   #endif
   _mqttClient.setServer(getMqttServerHost(), getMqttServerPort());
   _mqttClient.setCallback(std::bind(&ESPDomotic::receiveMqttMessage, this, std::placeholders::_1, std::placeholders::_2, std::placeholders::_3));
+  #endif
   loadChannelsSettings();
   // OTA Update
   #ifdef LOGGING
@@ -111,12 +120,15 @@ void ESPDomotic::init() {
 
 void ESPDomotic::loop() {
   _httpServer.handleClient();
+  #ifndef MQTT_OFF
   if (!_mqttClient.connected()) {
     connectBroker();
   }
   _mqttClient.loop();
+  #endif
 }
 
+#ifndef MQTT_OFF
 void ESPDomotic::setMqttConnectionCallback(std::function<void()> callback) {
     _mqttConnectionCallback = callback;
 }
@@ -124,6 +136,7 @@ void ESPDomotic::setMqttConnectionCallback(std::function<void()> callback) {
 void ESPDomotic::setMqttMessageCallback(std::function<void(char*, uint8_t*, unsigned int)> callback) {
   _mqttMessageCallback = callback;
 }
+#endif
 
 void ESPDomotic::setFeedbackPin(uint8_t fp) {
   _feedbackPin = fp;
@@ -159,6 +172,7 @@ uint8_t ESPDomotic::getChannelsCount() {
   return _channelsCount;
 }
 
+#ifndef MQTT_OFF
 uint16_t ESPDomotic::getMqttServerPort() {
   return (uint16_t) String(_mqttPort.getValue()).toInt();
 }
@@ -166,6 +180,7 @@ uint16_t ESPDomotic::getMqttServerPort() {
 const char* ESPDomotic::getMqttServerHost() {
   return _mqttHost.getValue();
 }
+#endif
 
 const char* ESPDomotic::getModuleName() {
   return _moduleName.getValue();
@@ -193,9 +208,11 @@ const char* ESPDomotic::getStationName () {
   return _stationName;
 }
 
+#ifndef MQTT_OFF
 PubSubClient* ESPDomotic::getMqttClient() {
   return &_mqttClient;
 }
+#endif
 
 ESP8266WebServer* ESPDomotic::getHttpServer() {
   return &_httpServer;
@@ -262,6 +279,7 @@ void ESPDomotic::loadFile (const char* fileName, char buff[], size_t size) {
   }
 }
 
+#ifndef MQTT_OFF
 void ESPDomotic::connectBroker() {
   if (_mqttNextConnAtte <= millis()) {
     _mqttNextConnAtte = millis() + _mqttBrokerReconnectionRetry;
@@ -288,7 +306,9 @@ void ESPDomotic::connectBroker() {
     }
   }
 }
+#endif
 
+#ifndef MQTT_OFF
 String ESPDomotic::getChannelTopic (Channel *channel, String suffix) {
   return String(getModuleType()) + F("/") + getModuleLocation() + F("/") + getModuleName() + F("/") + channel->name + F("/") + suffix;
 }
@@ -296,6 +316,7 @@ String ESPDomotic::getChannelTopic (Channel *channel, String suffix) {
 String ESPDomotic::getStationTopic (String suffix) {
   return String(getModuleType()) + F("/") + getModuleLocation() + F("/") + getModuleName() + F("/") + suffix;
 }
+#endif
 
 bool ESPDomotic::loadConfig () {
   size_t size = getFileSize("/config.json");
@@ -306,8 +327,10 @@ bool ESPDomotic::loadConfig () {
     DynamicJsonBuffer jsonBuffer;
     JsonObject& json = jsonBuffer.parseObject(buff);
     if (json.success()) {
+      #ifndef MQTT_OFF
       _mqttHost.updateValue(json[_mqttHost.getName()]);
       _mqttPort.updateValue(json[_mqttPort.getName()]);
+      #endif
       _moduleLocation.updateValue(json[_moduleLocation.getName()]);
       _moduleName.updateValue(json[_moduleName.getName()]);
       #ifdef LOGGING
@@ -336,11 +359,14 @@ bool ESPDomotic::loadConfig () {
         debug(F("Read key"), key);
         debug(F("Key value"), val);
         #endif
+        #ifndef MQTT_OFF
         if (key.equals(_mqttPort.getName())) {
           _mqttPort.updateValue(val.c_str());
         } else if (key.equals(_mqttHost.getName())) {
           _mqttHost.updateValue(val.c_str());
-        } else if (key.equals(_moduleLocation.getName())) {
+        } else
+        #endif
+        if (key.equals(_moduleLocation.getName())) {
           _moduleLocation.updateValue(val.c_str());
         } else if (key.equals(_moduleName.getName())) {
           _moduleName.updateValue(val.c_str());
@@ -372,8 +398,10 @@ void ESPDomotic::saveConfig () {
     DynamicJsonBuffer jsonBuffer;
     JsonObject& json = jsonBuffer.createObject();
     //TODO Trim param values
+    #ifndef MQTT_OFF
     json[_mqttHost.getName()] = _mqttHost.getValue();
     json[_mqttPort.getName()] = _mqttPort.getValue();
+    #endif
     json[_moduleLocation.getName()] = _moduleLocation.getValue();
     json[_moduleName.getName()] = _moduleName.getValue();
     json.printTo(file);
@@ -383,14 +411,16 @@ void ESPDomotic::saveConfig () {
     Serial.println();
     #endif
     #else
-    String line = String(_mqttHost.getName()) + "=" + String(_mqttHost.getValue());
-    file.println(line);
-    line = String(_mqttPort.getName()) + "=" + String(_mqttPort.getValue());
-    file.println(line);
-    line = String(_moduleLocation.getName()) + "=" + String(_moduleLocation.getValue());
+    String line = String(_moduleLocation.getName()) + "=" + String(_moduleLocation.getValue());
     file.println(line);
     line = String(_moduleName.getName()) + "=" + String(_moduleName.getValue());
     file.println(line);
+    #ifndef MQTT_OFF
+    line = String(_mqttHost.getName()) + "=" + String(_mqttHost.getValue());
+    file.println(line);
+    line = String(_mqttPort.getName()) + "=" + String(_mqttPort.getValue());
+    file.println(line);
+    #endif
     #endif
     file.close();
   } else {
@@ -552,6 +582,7 @@ bool ESPDomotic::closeChannel (Channel* channel) {
   }
 }
 
+#ifndef MQTT_OFF
 void ESPDomotic::receiveMqttMessage(char* topic, uint8_t* payload, unsigned int length) {
   #ifdef LOGGING
   debug(F("MQTT message received on topic"), topic);
@@ -589,6 +620,7 @@ void ESPDomotic::receiveMqttMessage(char* topic, uint8_t* payload, unsigned int 
     _mqttMessageCallback(topic, payload, length);
   }
 }
+#endif
 
 void ESPDomotic::moduleHardReset () {
   #ifdef LOGGING
@@ -649,9 +681,11 @@ bool ESPDomotic::renameChannel(Channel* channel, uint8_t* payload, unsigned int 
     #ifdef LOGGING
     debug(F("Channel renamed"), newName);
     #endif
+    #ifndef MQTT_OFF
     getMqttClient()->unsubscribe(getChannelTopic(channel, "command/+").c_str());
     channel->updateName(newName);
     getMqttClient()->subscribe(getChannelTopic(channel, "command/+").c_str());
+    #endif
   }
   return renamed;
 }

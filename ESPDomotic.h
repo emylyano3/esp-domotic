@@ -2,12 +2,17 @@
 #define ESPDomotic_h
 
 #include <Arduino.h>
+
+#ifndef MQTT_OFF
 #include <PubSubClient.h>
+#endif
 #include <ESP8266WebServer.h>
 
 const uint8_t       _invalidPinNo                 = 255;
 const unsigned long _wifiConnectTimeout           = 30 * 1000;
+#ifndef MQTT_OFF
 const unsigned long _mqttBrokerReconnectionRetry  = 5  * 1000;
+#endif
 const uint8_t       _wifiMinSignalQuality         = 30;
 const uint8_t       _channelNameMaxLength         = 20;
 const uint8_t       _paramValueMaxLength          = 20;
@@ -80,6 +85,7 @@ class ESPDomotic {
         // Resets the module and erases persisted data & wifi settings (factory restore)
         void                moduleHardReset ();
         
+        #ifndef MQTT_OFF
         /* MQTT */
         // Sets the callback to be called just after the connection to mqtt broker has been stablished
         void                setMqttConnectionCallback(std::function<void()> callback);
@@ -92,6 +98,9 @@ class ESPDomotic {
         // Returns the inner mqtt client
         PubSubClient*       getMqttClient();
         String              getStationTopic (String cmd);
+        // Returns the mqtt topic to which a channel may be subscribed
+        String              getChannelTopic (Channel *c, String cmd);
+        #endif
 
         /*HTTP Server*/
         ESP8266WebServer*   getHttpServer();
@@ -109,8 +118,6 @@ class ESPDomotic {
         bool            closeChannel (Channel* c);
         // Adds new channel to manage
         void            addChannel(Channel* c);
-        // Returns the mqtt topic to which a channel may be subscribed
-        String          getChannelTopic (Channel *c, String cmd);
         // To rename a channel
         bool            renameChannel(Channel* c, uint8_t* payload, unsigned int length);
         // To change the state of a channel. Intened to use with channel configures as OUTPUT
@@ -136,6 +143,7 @@ class ESPDomotic {
         uint8_t         _feedbackPin    = _invalidPinNo;
         Channel**       _channels;
 
+        #ifndef MQTT_OFF
         /* Mqtt callbacks */
         // Called after connection to mqtt broker has been stablished.
         // This lets user to suscribe to any topic he wants
@@ -143,12 +151,14 @@ class ESPDomotic {
         // Called when an income mqtt message is received.
         // This lets user to process all incoming message to any topic it has suscribed.
         std::function<void(char*, uint8_t*, unsigned int)>  _mqttMessageCallback;
+        /* Receives the message from the mqtt client */
+        void            receiveMqttMessage(char* topic, uint8_t* payload, unsigned int length);
+        #endif
         
         /* Utils */
         void            connectBroker();
         bool            loadConfig();
         void            saveConfig();
         bool            loadChannelsSettings();
-        void            receiveMqttMessage(char* topic, uint8_t* payload, unsigned int length);
 };
 #endif

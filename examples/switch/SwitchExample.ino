@@ -54,8 +54,10 @@ void setup() {
   #ifndef ESP01
   _domoticModule.setFeedbackPin(LED_PIN);
   #endif
+  #ifndef MQTT_OFF
   _domoticModule.setMqttConnectionCallback(mqttConnectionCallback);
   _domoticModule.setMqttMessageCallback(receiveMqttMessage);
+  #endif
   _domoticModule.setModuleType("light");
   _domoticModule.addChannel(&_switch);
   _domoticModule.addChannel(&_light);
@@ -77,13 +79,16 @@ void processInput() {
         channel->state = read;
         channel->slave->state = channel->slave->state == LOW ? HIGH : LOW;
         digitalWrite(channel->slave->pin, channel->slave->state);
+        #ifndef MQTT_OFF
         _domoticModule.getMqttClient()->publish(_domoticModule.getChannelTopic(channel->slave, "feedback/state").c_str(), channel->slave->state == LOW ? "1" : "0");
+        #endif
         log(F("Output channel state changeed to"), channel->slave->state == LOW ? "ON" : "OFF");
       }
     }
   }
 }
 
+#ifndef MQTT_OFF
 void mqttConnectionCallback() {
   // no additional subsription is needed
 }
@@ -91,3 +96,4 @@ void mqttConnectionCallback() {
 void receiveMqttMessage(char* topic, uint8_t* payload, unsigned int length) {
   // no additional message to process
 }
+#endif
