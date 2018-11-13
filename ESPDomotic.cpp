@@ -102,8 +102,10 @@ void ESPDomotic::init() {
   _httpServer.begin();
   #ifdef LOGGING
   debug(F("HTTPUpdateServer ready.")); 
-  debug("Open http://" + String(getStationName()) + ".local/update");
   debug("Open http://" + WiFi.localIP().toString() + "/update");
+  #ifndef ESP01
+  debug("Open http://" + String(getStationName()) + ".local/update");
+  #endif
   #endif
 }
 
