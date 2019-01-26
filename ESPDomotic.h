@@ -9,7 +9,7 @@
 #include <ESP8266WebServer.h>
 
 const uint8_t       _invalidPinNo                 = 255;
-const unsigned long _wifiConnectTimeout           = 30 * 1000;
+
 #ifndef MQTT_OFF
 const unsigned long _mqttBrokerReconnectionRetry  = 5  * 1000;
 #endif
@@ -66,7 +66,6 @@ class ESPDomotic {
         // Must be called inside main loop
         void    loop();
 
-
         /* Module settings */
         // Sets the SSID for the configuration portal (When module enters in AP mode)
         void                setPortalSSID(const char* ssid);
@@ -84,7 +83,9 @@ class ESPDomotic {
         const char*         getStationName();
         // Resets the module and erases persisted data & wifi settings (factory restore)
         void                moduleHardReset ();
-        
+        void                setWifiConnectTimeout (uint16_t seconds);
+        void                setConfigPortalTimeout (uint16_t seconds);
+
         #ifndef MQTT_OFF
         /* MQTT */
         // Sets the callback to be called just after the connection to mqtt broker has been stablished

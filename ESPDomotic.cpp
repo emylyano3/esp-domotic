@@ -32,8 +32,12 @@ unsigned long             _mqttNextConnAtte     = 0;
 
 char                      _stationName[_paramValueMaxLength * 3 + 4];
 
-const uint8_t _channelsMax    = 5;
-uint8_t       _channelsCount  = 0;
+bool            _runningStandAlone    = false;
+const uint8_t   _channelsMax          = 5;
+uint8_t         _channelsCount        = 0;
+
+uint16_t        _wifiConnectTimeout   = 30;
+uint16_t        _configPortalTimeout  = 60;
 
 ESPDomotic::ESPDomotic() {
   _channels = (Channel**)malloc(_channelsMax * sizeof(Channel*));
@@ -54,6 +58,7 @@ void ESPDomotic::init() {
   _moduleConfig.addParameter(&_mqttPort);
   #endif
   _moduleConfig.setWifiConnectTimeout(_wifiConnectTimeout);
+  _moduleConfig.setConfigPortalTimeout(_configPortalTimeout);
   _moduleConfig.setAPStaticIP(IPAddress(10,10,10,10),IPAddress(IPAddress(10,10,10,10)),IPAddress(IPAddress(255,255,255,0)));
   if (_apSSID) {
     _moduleConfig.setPortalSSID(_apSSID);
@@ -68,12 +73,18 @@ void ESPDomotic::init() {
     pinMode(_feedbackPin, OUTPUT);
     _moduleConfig.setFeedbackPin(_feedbackPin);
   }
-  _moduleConfig.connectWifiNetwork(loadConfig());
+  _runningStandAlone = !_moduleConfig.connectWifiNetwork(loadConfig());
   #ifdef LOGGING
-  debug(F("Connected to wifi...."));
+  debug(F("Connected to wifi"), _runningStandAlone ? "false" : "true");
   #endif
   if (_feedbackPin != _invalidPinNo) {
-    _moduleConfig.blockingFeedback(_feedbackPin, 100, 8);
+    if (_runningStandAlone) {
+      // could not connect to a wifi net
+      _moduleConfig.blockingFeedback(_feedbackPin, 2000, 1);
+    } else {
+      // connected to a wifi net and able to send/receive mqtt messages
+      _moduleConfig.blockingFeedback(_feedbackPin, 100, 10);
+    }
   }
   #ifdef LOGGING
   debug(F("Setting channels pin mode. Channels count"), _channelsCount);
@@ -89,43 +100,48 @@ void ESPDomotic::init() {
       _channels[i]->state = digitalRead(_channels[i]->pin);
     }
   }
-  #ifndef MQTT_OFF
-  #ifdef LOGGING
-  debug(F("Configuring MQTT broker"));
-  debug(F("HOST"), getMqttServerHost());
-  debug(F("PORT"), getMqttServerPort());
-  #endif
-  _mqttClient.setServer(getMqttServerHost(), getMqttServerPort());
-  _mqttClient.setCallback(std::bind(&ESPDomotic::receiveMqttMessage, this, std::placeholders::_1, std::placeholders::_2, std::placeholders::_3));
-  #endif
-  loadChannelsSettings();
-  // OTA Update
-  #ifdef LOGGING
-  debug(F("Setting OTA update"));
-  #endif
-  #ifndef ESP01
-  MDNS.begin(getStationName());
-  MDNS.addService("http", "tcp", 80);
-  #endif
-  _httpUpdater.setup(&_httpServer);
-  _httpServer.begin();
-  #ifdef LOGGING
-  debug(F("HTTPUpdateServer ready.")); 
-  debug("Open http://" + WiFi.localIP().toString() + "/update");
-  #ifndef ESP01
-  debug("Open http://" + String(getStationName()) + ".local/update");
-  #endif
-  #endif
+  if (!_runningStandAlone) {
+    #ifndef MQTT_OFF
+    #ifdef LOGGING
+    debug(F("Configuring MQTT broker"));
+    debug(F("HOST"), getMqttServerHost());
+    debug(F("PORT"), getMqttServerPort());
+    #endif
+    _mqttClient.setServer(getMqttServerHost(), getMqttServerPort());
+    _mqttClient.setCallback(std::bind(&ESPDomotic::receiveMqttMessage, this, std::placeholders::_1, std::placeholders::_2, std::placeholders::_3));
+    #endif
+    loadChannelsSettings();
+    // OTA Update
+    #ifdef LOGGING
+    debug(F("Setting OTA update"));
+    #endif
+    // no network connection so module cant be reached
+    #ifndef ESP01
+    MDNS.begin(getStationName());
+    MDNS.addService("http", "tcp", 80);
+    #endif
+    _httpUpdater.setup(&_httpServer);
+    _httpServer.begin();
+    #ifdef LOGGING
+    debug(F("HTTPUpdateServer ready.")); 
+    debug("Open http://" + WiFi.localIP().toString() + "/update");
+    #ifndef ESP01
+    debug("Open http://" + String(getStationName()) + ".local/update");
+    #endif
+    #endif
+  }
 }
 
 void ESPDomotic::loop() {
-  _httpServer.handleClient();
-  #ifndef MQTT_OFF
-  if (!_mqttClient.connected()) {
-    connectBroker();
+  if (!_runningStandAlone) {
+    _httpServer.handleClient();
+    #ifndef MQTT_OFF
+    if (!_mqttClient.connected()) {
+      connectBroker();
+    }
+    _mqttClient.loop();
+    #endif
   }
-  _mqttClient.loop();
-  #endif
 }
 
 #ifndef MQTT_OFF
@@ -630,6 +646,14 @@ void ESPDomotic::moduleHardReset () {
   WiFi.disconnect();
   delay(200);
   ESP.restart();
+}
+
+void ESPDomotic::setWifiConnectTimeout (uint16_t seconds) {
+  _wifiConnectTimeout = seconds;
+}
+
+void ESPDomotic::setConfigPortalTimeout (uint16_t seconds) {
+  _configPortalTimeout = seconds;
 }
 
 bool ESPDomotic::enableChannel(Channel* channel, unsigned char* payload, unsigned int length) {
