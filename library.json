@@ -1,6 +1,6 @@
 {
   "name": "ESPDomotic",
-  "keywords": "domotic",
+  "keywords": "domotic, esp, mqtt",
   "description": "ESP8266 generic library to build applications for domotics purposes",
   "repository":
   {
