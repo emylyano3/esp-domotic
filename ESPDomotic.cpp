@@ -38,6 +38,8 @@ uint8_t         _channelsCount        = 0;
 
 uint16_t        _wifiConnectTimeout   = 30;
 uint16_t        _configPortalTimeout  = 60;
+uint16_t        _configFileSize       = 200;
+
 
 ESPDomotic::ESPDomotic() {
   _channels = (Channel**)malloc(_channelsMax * sizeof(Channel*));
@@ -645,6 +647,10 @@ void ESPDomotic::setWifiConnectTimeout (uint16_t seconds) {
 
 void ESPDomotic::setConfigPortalTimeout (uint16_t seconds) {
   _configPortalTimeout = seconds;
+}
+
+void ESPDomotic::setConfigFileSize (uint16_t bytes) {
+  _configFileSize = bytes;
 }
 
 bool ESPDomotic::enableChannel(Channel* channel, unsigned char* payload, unsigned int length) {

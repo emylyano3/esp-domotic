@@ -85,6 +85,7 @@ class ESPDomotic {
         void                moduleHardReset ();
         void                setWifiConnectTimeout (uint16_t seconds);
         void                setConfigPortalTimeout (uint16_t seconds);
+        void                setConfigFileSize (uint16_t bytes);
 
         #ifndef MQTT_OFF
         /* MQTT */

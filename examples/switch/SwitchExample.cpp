@@ -1,5 +1,9 @@
 #include <ESPDomotic.h>
 
+void processInput();
+void mqttConnectionCallback();
+void receiveMqttMessage(char* topic, uint8_t* payload, unsigned int length);
+
 #ifdef ESP01
 // usable pins GPIO2 (GPIO3 if using SERIAL_TX_ONLY)
 const uint8_t SWITCH_PIN  = 3;
@@ -58,6 +62,9 @@ void setup() {
   _domoticModule.setMqttConnectionCallback(mqttConnectionCallback);
   _domoticModule.setMqttMessageCallback(receiveMqttMessage);
   #endif
+  _domoticModule.setConfigPortalTimeout(90);
+  _domoticModule.setWifiConnectTimeout(45);
+  _domoticModule.setConfigFileSize(250);
   _domoticModule.setModuleType("light");
   _domoticModule.addChannel(&_switch);
   _domoticModule.addChannel(&_light);
