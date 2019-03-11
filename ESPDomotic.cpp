@@ -461,7 +461,7 @@ bool ESPDomotic::loadChannelsSettings () {
           _channels[i]->timer = doc[String(_channels[i]->id) + "_timer"];
           _channels[i]->enabled = doc[String(_channels[i]->id) + "_enabled"];
           #ifdef LOGGING
-          setializeJsonPretty(doc, Serial);
+          serializeJsonPretty(doc, Serial);
           #endif
         }
         return true;
