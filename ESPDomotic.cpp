@@ -309,18 +309,18 @@ void ESPDomotic::connectBroker() {
       debug(F("MQTT broker Connected"));
       #endif
       // subscribe station to any command
-      const char* topic = getStationTopic("command/+").c_str();
-      getMqttClient()->subscribe(topic);
+      String topic = getStationTopic("command/+");
+      getMqttClient()->subscribe(topic.c_str());
       #ifdef LOGGING
-      debug(F("Subscribed to"), topic);
+      debug(F("Subscribed to"), topic.c_str());
       #endif
       // subscribe channels to any command
       for (size_t i = 0; i < getChannelsCount(); ++i) {
-        topic = getChannelTopic(getChannel(i), "command/+").c_str();
+        topic = getChannelTopic(getChannel(i), "command/+");
         #ifdef LOGGING
-        debug(F("Subscribed to"), topic);
+        debug(F("Subscribed to"), topic.c_str());
         #endif
-        getMqttClient()->subscribe(topic);
+        getMqttClient()->subscribe(topic.c_str());
       }
       if (_mqttConnectionCallback) {
         _mqttConnectionCallback();
