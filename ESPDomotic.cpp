@@ -340,23 +340,22 @@ bool ESPDomotic::loadConfig () {
     #ifndef ESP01
     char buff[size];
     loadFile("/config.json", buff, size);
-    DynamicJsonBuffer jsonBuffer;
-    JsonObject& json = jsonBuffer.parseObject(buff);
-    if (json.success()) {
+    DynamicJsonDocument doc(200);
+    DeserializationError error = deserializeJson(doc, buff);
+    if (!error) {
       #ifndef MQTT_OFF
-      _mqttHost.updateValue(json[_mqttHost.getName()]);
-      _mqttPort.updateValue(json[_mqttPort.getName()]);
+      _mqttHost.updateValue(doc[_mqttHost.getName()]);
+      _mqttPort.updateValue(doc[_mqttPort.getName()]);
       #endif
-      _moduleLocation.updateValue(json[_moduleLocation.getName()]);
-      _moduleName.updateValue(json[_moduleName.getName()]);
+      _moduleLocation.updateValue(doc[_moduleLocation.getName()]);
+      _moduleName.updateValue(doc[_moduleName.getName()]);
       #ifdef LOGGING
-      json.printTo(Serial);
-      Serial.println();
+      serializeJsonPretty(doc, Serial);
       #endif
       return true;
     } else {
       #ifdef LOGGING
-      debug(F("Failed to load json config"));
+      debug(F("Failed to load json config"), error.c_str());
       #endif
       return false;
     }
@@ -411,20 +410,18 @@ void ESPDomotic::saveConfig () {
   File file = SPIFFS.open("/config.json", "w");
   if (file) {
     #ifndef ESP01
-    DynamicJsonBuffer jsonBuffer;
-    JsonObject& json = jsonBuffer.createObject();
+    DynamicJsonDocument doc(200);
     //TODO Trim param values
     #ifndef MQTT_OFF
-    json[_mqttHost.getName()] = _mqttHost.getValue();
-    json[_mqttPort.getName()] = _mqttPort.getValue();
+    doc[_mqttHost.getName()] = _mqttHost.getValue();
+    doc[_mqttPort.getName()] = _mqttPort.getValue();
     #endif
-    json[_moduleLocation.getName()] = _moduleLocation.getValue();
-    json[_moduleName.getName()] = _moduleName.getValue();
-    json.printTo(file);
+    doc[_moduleLocation.getName()] = _moduleLocation.getValue();
+    doc[_moduleName.getName()] = _moduleName.getValue();
+    serializeJson(doc, file);
     #ifdef LOGGING
     debug(F("Configuration file saved"));
-    json.printTo(Serial);
-    Serial.println();
+    serializeJsonPretty(doc, Serial);
     #endif
     #else
     String line = String(_moduleLocation.getName()) + "=" + String(_moduleLocation.getValue());
@@ -453,28 +450,24 @@ bool ESPDomotic::loadChannelsSettings () {
       #ifndef ESP01
       char buff[size];
       loadFile("/settings.json", buff, size);
-      DynamicJsonBuffer jsonBuffer;
-      JsonObject& json = jsonBuffer.parseObject(buff);
+      DynamicJsonDocument doc(200);
+      DeserializationError error = deserializeJson(doc, buff);
       #ifdef LOGGING
-      json.printTo(Serial);
-      Serial.println();
+      serializeJsonPretty(doc, Serial);
       #endif
-      if (json.success()) {
+      if (!error) {
         for (uint8_t i = 0; i < _channelsCount; ++i) {
-          _channels[i]->updateName(json[String(_channels[i]->id) + "_name"]);
-          _channels[i]->timer = json[String(_channels[i]->id) + "_timer"];
-          _channels[i]->enabled = json[String(_channels[i]->id) + "_enabled"];
+          _channels[i]->updateName(doc[String(_channels[i]->id) + "_name"]);
+          _channels[i]->timer = doc[String(_channels[i]->id) + "_timer"];
+          _channels[i]->enabled = doc[String(_channels[i]->id) + "_enabled"];
           #ifdef LOGGING
-          debug(F("Channel id"), _channels[i]->id);
-          debug(F("Channel name"), _channels[i]->name);
-          debug(F("Channel timer"), _channels[i]->timer);
-          debug(F("Channel enabled"), _channels[i]->enabled);
+          setializeJsonPretty(doc, Serial);
           #endif
         }
         return true;
       } else {
         #ifdef LOGGING
-        debug(F("Failed to load json"));
+        debug(F("Failed to load json"), error.c_str());
         #endif
         return false;
       }
@@ -528,19 +521,17 @@ void ESPDomotic::saveChannelsSettings () {
   File file = SPIFFS.open("/settings.json", "w");
   if (file) {
     #ifndef ESP01
-    DynamicJsonBuffer jsonBuffer;
-    JsonObject& json = jsonBuffer.createObject();
+    DynamicJsonDocument doc(200);
     //TODO Trim param values
     for (uint8_t i = 0; i < _channelsCount; ++i) {
-      json[String(_channels[i]->id) + "_name"] = _channels[i]->name;
-      json[String(_channels[i]->id) + "_timer"] = _channels[i]->timer;
-      json[String(_channels[i]->id) + "_enabled"] = _channels[i]->enabled;
+      doc[String(_channels[i]->id) + "_name"] = _channels[i]->name;
+      doc[String(_channels[i]->id) + "_timer"] = _channels[i]->timer;
+      doc[String(_channels[i]->id) + "_enabled"] = _channels[i]->enabled;
     }
-    json.printTo(file);
+    serializeJson(doc, file);
     #ifdef LOGGING
     debug(F("Configuration file saved"));
-    json.printTo(Serial);
-    Serial.println();
+    serializeJsonPretty(doc, Serial);
     #endif
     #else
     for (uint8_t i = 0; i > _channelsCount; ++i) {
