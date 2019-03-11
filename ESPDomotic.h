@@ -23,8 +23,6 @@ class Channel {
     public:
         Channel(const char* id, const char* name, uint8_t pin, uint8_t pinMode, uint8_t state);
         Channel(const char* id, const char* name, uint8_t pin, uint8_t pinMode, uint8_t state, uint16_t timer);
-        Channel(const char* id, const char* name, uint8_t pin, uint8_t pinMode, uint8_t state, Channel* slave);
-        Channel(const char* id, const char* name, uint8_t pin, uint8_t pinMode, uint8_t state, uint16_t timer, Channel* slave);
 
         const char*     id;
         char*           name;
@@ -33,12 +31,10 @@ class Channel {
         uint8_t         state;
         unsigned long   timer;
         bool            enabled;
-        // To bind channels. Generally input channel that manage an output one
-        Channel         *slave;
 
         unsigned long   timerControl;
         
-        void    init(const char* id, const char* name, uint8_t pin, uint8_t pinMode, uint8_t state, uint16_t timer, Channel *slave);
+        void    init(const char* id, const char* name, uint8_t pin, uint8_t pinMode, uint8_t state, uint16_t timer);
 
         // Updates the channel´s name
         void    updateName (const char *v);
