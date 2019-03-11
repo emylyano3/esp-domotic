@@ -154,10 +154,10 @@ class ESPDomotic {
         std::function<void(char*, uint8_t*, unsigned int)>  _mqttMessageCallback;
         /* Receives the message from the mqtt client */
         void            receiveMqttMessage(char* topic, uint8_t* payload, unsigned int length);
+        void            connectBroker();
         #endif
         
         /* Utils */
-        void            connectBroker();
         bool            loadConfig();
         void            saveConfig();
         bool            loadChannelsSettings();
