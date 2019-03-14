@@ -35,17 +35,27 @@ char                      _stationName[_paramValueMaxLength * 3 + 4];
 bool            _runningStandAlone    = false;
 const uint8_t   _channelsMax          = 5;
 uint8_t         _channelsCount        = 0;
+uint8_t         _qos                  = 1;
+
+const char*     _homieVersion         = "3.1.0";
+const char*     _implementation       = "esp8266";
+const char*     _fwVersion            = NULL;
+const char*     _fwName               = NULL;
+uint8_t         _statsInterval        = 60;
 
 uint16_t        _wifiConnectTimeout   = 30;
 uint16_t        _configPortalTimeout  = 60;
-uint16_t        _configFileSize       = 200;
+uint16_t        _configFileSize       = 200; //Bytes
 
 
 ESPDomotic::ESPDomotic() {
   _channels = (Channel**)malloc(_channelsMax * sizeof(Channel*));
 }
 
-ESPDomotic::~ESPDomotic() {}
+ESPDomotic::~ESPDomotic() {
+  //TODO Check if this does not break anything 
+  // ~free(_channels);
+}
 
 void ESPDomotic::init() {
   #ifdef LOGGING
@@ -109,8 +119,8 @@ void ESPDomotic::init() {
     debug(F("HOST"), getMqttServerHost());
     debug(F("PORT"), getMqttServerPort());
     #endif
-    _mqttClient.setServer(getMqttServerHost(), getMqttServerPort());
-    _mqttClient.setCallback(std::bind(&ESPDomotic::receiveMqttMessage, this, std::placeholders::_1, std::placeholders::_2, std::placeholders::_3));
+    getMqttClient()->setServer(getMqttServerHost(), getMqttServerPort());
+    getMqttClient()->setCallback(std::bind(&ESPDomotic::receiveMqttMessage, this, std::placeholders::_1, std::placeholders::_2, std::placeholders::_3));
     #endif
     loadChannelsSettings();
     // OTA Update
@@ -141,7 +151,7 @@ void ESPDomotic::loop() {
     if (!_mqttClient.connected()) {
       connectBroker();
     }
-    _mqttClient.loop();
+    getMqttClient()->loop();
     #endif
   }
 }
@@ -304,43 +314,148 @@ void ESPDomotic::connectBroker() {
     #ifdef LOGGING
     debug(F("Connecting MQTT broker as"), getStationName());
     #endif
-    if (_mqttClient.connect(getStationName())) {
+    if (getMqttClient()->connect(getStationName())) {
       #ifdef LOGGING
       debug(F("MQTT broker Connected"));
       #endif
-      // subscribe station to any command
-      String topic = getStationTopic("command/+");
-      getMqttClient()->subscribe(topic.c_str());
-      #ifdef LOGGING
-      debug(F("Subscribed to"), topic.c_str());
-      #endif
-      // subscribe channels to any command
-      for (size_t i = 0; i < getChannelsCount(); ++i) {
-        topic = getChannelTopic(getChannel(i), "command/+");
-        #ifdef LOGGING
-        debug(F("Subscribed to"), topic.c_str());
-        #endif
-        getMqttClient()->subscribe(topic.c_str());
-      }
-      if (_mqttConnectionCallback) {
-        _mqttConnectionCallback();
-      }
+      //TODO Check skipping homie signup on reconnection 
+      // homieSignUp();
+      subscribe();
+      String baseTopic = String("homie/" + ESP.getChipId());
+      getMqttClient()->publish(String(baseTopic + "/$state").c_str(), "ready");
     } else {
       #ifdef LOGGING
-      debug(F("Failed. RC:"), _mqttClient.state());
+      debug(F("Failed. RC:"), getMqttClient()->state());
       #endif
     }
   }
 }
-#endif
 
-#ifndef MQTT_OFF
+void ESPDomotic::homieSignUp() {
+  #ifdef LOGGING
+  debug("Homie sign up");
+  #endif
+  // /homie/deviceID
+  String baseTopic = String("homie/") + String(getModuleType()) + "_" + String(ESP.getChipId());
+  debug("Base topic", baseTopic);
+  debug("Publishing homie version");
+  getMqttClient()->publish(String(baseTopic + "/$homie").c_str(), _homieVersion);
+  //Friendly name
+  debug("Publishing device name");
+  getMqttClient()->publish(String(baseTopic + "/$name").c_str(), getModuleName());
+  debug("Publishing local ip");
+  getMqttClient()->publish(String(baseTopic + "/$localip").c_str(), toStringIp(WiFi.localIP()).c_str());
+  debug("Publishing mac address");
+  getMqttClient()->publish(String(baseTopic + "/$mac").c_str(), WiFi.macAddress().c_str());
+  debug("Publishing firmware name");
+  getMqttClient()->publish(String(baseTopic + "/$fw/name").c_str(), getFirmwareName());
+  debug("Publishing firmware version");
+  getMqttClient()->publish(String(baseTopic + "/$fw/version").c_str(), getFirmwareVersion());
+  //Iterate channels and build a comma separated list of them
+  String nodes = "";
+  for (uint8_t i = 0; i < _channelsCount; ++i) {
+    nodes += _channels[i]->id;
+  }
+  debug("Publishing nodes");
+  getMqttClient()->publish(String(baseTopic + "/$nodes").c_str(), nodes.c_str());
+  debug("Publishing implementation");
+  getMqttClient()->publish(String(baseTopic + "/$implementation").c_str(), _implementation);
+  debug("Publishing state");
+  getMqttClient()->publish(String(baseTopic + "/$state").c_str(), "init");
+  debug("Publishing stats");
+  getMqttClient()->publish(String(baseTopic + "/$stats").c_str(), "uptime,signal");
+  char buff[5];
+  debug("Publishing stats interval");
+  getMqttClient()->publish(String(baseTopic + "/$stats/interval").c_str(), itoa(getStatsInterval(), buff, 10));
+  
+  debug("Publishing nodes details");
+  //Iterate channels and send its properties. Each channel is a node.
+  for (uint8_t i = 0; i < _channelsCount; ++i) {
+    String channelTopic = baseTopic + "/" + String(_channels[i]->id);
+    debug("Channel topic", channelTopic);
+    debug("Publishing node name");
+    getMqttClient()->publish(String(channelTopic + "/$name").c_str(), _channels[i]->name); // required
+    //TODO Decidir si dejar al usuario configurar el tipo de nodo (canal) o usar el "module type"
+    debug("Publishing node type");
+    getMqttClient()->publish(String(channelTopic + "/$type").c_str(), getModuleType()); // required
+    // getMqttClient()->publish(String(channelTopic + "/$array").c_str(), "on"); // required if the node is an array
+
+    debug("Publishing node properties");
+    getMqttClient()->publish(String(channelTopic + "/$properties").c_str(), "on"); // required
+    //Specification of each property
+    String propertyTopic = channelTopic + "/" + String(_channels[i]->property()->getId());
+    debug("Property topic", propertyTopic);
+    getMqttClient()->publish(String(propertyTopic + "/$name").c_str(), _channels[i]->property()->getName()); // not required default ""
+    getMqttClient()->publish(String(propertyTopic + "/$settable").c_str(), _channels[i]->property()->isSettable() ? "true" : "false"); // not required default false
+    getMqttClient()->publish(String(propertyTopic + "/$retained").c_str(), _channels[i]->property()->isRetained() ? "true" : "false"); // not required default true
+    getMqttClient()->publish(String(propertyTopic + "/$unit").c_str(), _channels[i]->property()->getUnit()); // not required default ""
+    getMqttClient()->publish(String(propertyTopic + "/$datatype").c_str(), _channels[i]->property()->getDataType()); // not required default String
+    getMqttClient()->publish(String(propertyTopic + "/$format").c_str(), _channels[i]->property()->getFormat()); // required just for color and enum
+  }
+}
+
+void ESPDomotic::subscribe() {
+  // subscribe station to any command
+  String topic = getStationTopic("command/+");
+  getMqttClient()->subscribe(topic.c_str(), _qos);
+  #ifdef LOGGING
+  debug(F("Subscribed to"), topic.c_str());
+  #endif
+  // subscribe channels to any command
+  for (size_t i = 0; i < getChannelsCount(); ++i) {
+    topic = getChannelTopic(getChannel(i), "command/+");
+    #ifdef LOGGING
+    debug(F("Subscribed to"), topic.c_str());
+    #endif
+    getMqttClient()->subscribe(topic.c_str(), _qos);
+  }
+  if (_mqttConnectionCallback) {
+    _mqttConnectionCallback();
+  }
+}
+
+void ESPDomotic::sendStats() {
+  String baseTopic = String("homie/" + ESP.getChipId());
+  getMqttClient()->publish(String(baseTopic + "/$stats/uptime").c_str(), "getUpTime()");
+  getMqttClient()->publish(String(baseTopic + "/$stats/signal").c_str(), "getSignal()");
+}
+
 String ESPDomotic::getChannelTopic (Channel *channel, String suffix) {
   return String(getModuleType()) + F("/") + getModuleLocation() + F("/") + getModuleName() + F("/") + channel->name + F("/") + suffix;
 }
 
 String ESPDomotic::getStationTopic (String suffix) {
   return String(getModuleType()) + F("/") + getModuleLocation() + F("/") + getModuleName() + F("/") + suffix;
+}
+
+void ESPDomotic::setFirmwareName (const char *fwName) {
+  _fwName = fwName;
+}
+
+void ESPDomotic::setFirmwareVersion (const char *fwVersion) {
+  _fwVersion = fwVersion;
+}
+
+const char* ESPDomotic::getFirmwareName () {
+  if (!_fwName) {
+    _fwName = "generic";
+  }
+  return _fwName;
+}
+
+const char* ESPDomotic::getFirmwareVersion () {
+  if (!_fwVersion) {
+    _fwVersion = "v0.1";
+  }
+  return _fwVersion;
+} 
+
+void ESPDomotic::setStatsInterval (uint8_t interval) {
+  _statsInterval = interval;
+}
+
+uint8_t ESPDomotic::getStatsInterval () {
+  return _statsInterval;
 }
 #endif
 
@@ -350,7 +465,7 @@ bool ESPDomotic::loadConfig () {
     #ifndef ESP01
     char buff[size];
     loadFile("/config.json", buff, size);
-    DynamicJsonDocument doc(200);
+    DynamicJsonDocument doc(_configFileSize);
     DeserializationError error = deserializeJson(doc, buff);
     if (!error) {
       #ifndef MQTT_OFF
@@ -361,6 +476,7 @@ bool ESPDomotic::loadConfig () {
       _moduleName.updateValue(doc[_moduleName.getName()]);
       #ifdef LOGGING
       serializeJsonPretty(doc, Serial);
+      Serial.println();
       #endif
       return true;
     } else {
@@ -420,7 +536,7 @@ void ESPDomotic::saveConfig () {
   File file = SPIFFS.open("/config.json", "w");
   if (file) {
     #ifndef ESP01
-    DynamicJsonDocument doc(200);
+    DynamicJsonDocument doc(_configFileSize);
     //TODO Trim param values
     #ifndef MQTT_OFF
     doc[_mqttHost.getName()] = _mqttHost.getValue();
@@ -432,6 +548,7 @@ void ESPDomotic::saveConfig () {
     #ifdef LOGGING
     debug(F("Configuration file saved"));
     serializeJsonPretty(doc, Serial);
+    Serial.println();
     #endif
     #else
     String line = String(_moduleLocation.getName()) + "=" + String(_moduleLocation.getValue());
@@ -460,10 +577,11 @@ bool ESPDomotic::loadChannelsSettings () {
       #ifndef ESP01
       char buff[size];
       loadFile("/settings.json", buff, size);
-      DynamicJsonDocument doc(200);
+      DynamicJsonDocument doc(_configFileSize);
       DeserializationError error = deserializeJson(doc, buff);
       #ifdef LOGGING
       serializeJsonPretty(doc, Serial);
+      Serial.println();
       #endif
       if (!error) {
         for (uint8_t i = 0; i < _channelsCount; ++i) {
@@ -472,6 +590,7 @@ bool ESPDomotic::loadChannelsSettings () {
           _channels[i]->enabled = doc[String(_channels[i]->id) + "_enabled"];
           #ifdef LOGGING
           serializeJsonPretty(doc, Serial);
+          Serial.println();
           #endif
         }
         return true;
@@ -531,7 +650,7 @@ void ESPDomotic::saveChannelsSettings () {
   File file = SPIFFS.open("/settings.json", "w");
   if (file) {
     #ifndef ESP01
-    DynamicJsonDocument doc(200);
+    DynamicJsonDocument doc(_configFileSize);
     //TODO Trim param values
     for (uint8_t i = 0; i < _channelsCount; ++i) {
       doc[String(_channels[i]->id) + "_name"] = _channels[i]->name;
@@ -542,6 +661,7 @@ void ESPDomotic::saveChannelsSettings () {
     #ifdef LOGGING
     debug(F("Configuration file saved"));
     serializeJsonPretty(doc, Serial);
+    Serial.println();
     #endif
     #else
     for (uint8_t i = 0; i > _channelsCount; ++i) {
@@ -713,7 +833,7 @@ bool ESPDomotic::renameChannel(Channel* channel, uint8_t* payload, unsigned int 
     #ifndef MQTT_OFF
     getMqttClient()->unsubscribe(getChannelTopic(channel, "command/+").c_str());
     channel->updateName(newName);
-    getMqttClient()->subscribe(getChannelTopic(channel, "command/+").c_str());
+    getMqttClient()->subscribe(getChannelTopic(channel, "command/+").c_str(), _qos);
     #endif
   }
   return renamed;
@@ -769,6 +889,16 @@ bool ESPDomotic::updateChannelTimer(Channel* channel, uint8_t* payload, unsigned
   return timerChanged;
 }
 
+/** IP to String? */
+String ESPDomotic::toStringIp(IPAddress ip) {
+  String res = "";
+  for (int i = 0; i < 3; i++) {
+    res += String((ip >> (8 * i)) & 0xFF) + ".";
+  }
+  res += String(((ip >> 8 * 3)) & 0xFF);
+  return res;
+}
+
 #ifdef LOGGING
 template <class T> void ESPDomotic::debug (T text) {
   Serial.print("*DOMO: ");
@@ -783,12 +913,60 @@ template <class T, class U> void ESPDomotic::debug (T key, U value) {
 }
 #endif
 
+Property* Property::setId(const char* id) {
+  this->_id = id;
+  return this;
+}
+
+Property* Property::setName(const char* name) {
+  this->_name = name;
+  return this;
+}
+
+Property* Property::setDataType(const char* type) {
+  this->_datatype = type;
+  return this;
+}
+
+Property* Property::setUnit(const char* unit) {
+  this->_unit = unit;
+  return this;
+}
+
+Property* Property::setFormat(const char* format) {
+  this->_format = format;
+  return this;
+}
+
+Property* Property::setSettable(bool settable) {
+  this->_settable = settable;
+  return this;
+}
+
+Property* Property::setRetained(bool retained) {
+  this->_retained = retained;
+  return this;
+}
+
+const char* Property::getId(){return this->_id;}
+const char* Property::getName(){return this->_name;}
+const char* Property::getDataType(){return this->_datatype;}
+const char* Property::getUnit(){return this->_unit;}
+const char* Property::getFormat(){return this->_format;}
+bool Property::isSettable(){return this->_settable;}
+bool Property::isRetained(){return this->_retained;}
+
 Channel::Channel(const char* id, const char* name, uint8_t pin, uint8_t pinMode, uint8_t state) {
   init(id, name, pin, pinMode, state, -1);
 }
 
 Channel::Channel(const char* id, const char* name, uint8_t pin, uint8_t pinMode, uint8_t state, uint16_t timer) {
   init(id, name, pin, pinMode, state, timer);
+}
+
+Channel::~Channel() {
+  delete[] name;
+  delete prop;
 }
 
 void Channel::init(const char* id, const char* name, uint8_t pin, uint8_t pinMode, uint8_t state, uint16_t timer) {
@@ -812,4 +990,11 @@ void Channel::updateTimerControl() {
 
 bool Channel::isEnabled () {
   return this->enabled && this->name != NULL && strlen(this->name) > 0;
+}
+
+Property* Channel::property () {
+  if (!this->prop) {
+    prop = new Property();
+  }
+  return this->prop;
 }
