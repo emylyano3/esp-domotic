@@ -1,6 +1,7 @@
 #pragma once
 
 #include <Arduino.h>
+#include "Channel.hpp"
 
 #ifndef MQTT_OFF
 #include <PubSubClient.h>
@@ -13,68 +14,10 @@ const uint8_t       _invalidPinNo                 = 255;
 const unsigned long _mqttBrokerReconnectionRetry  = 5  * 1000;
 #endif
 const uint8_t       _wifiMinSignalQuality         = 30;
-const uint8_t       _channelNameMaxLength         = 20;
 const uint8_t       _paramValueMaxLength          = 20;
 const uint8_t       _paramIPValueLength           = 16;   // IP max length is 15 chars
 const uint8_t       _paramPortValueLength         = 6;    // port range is from 0 to 65535
 
-class Property {
-    private:
-        const char* _id;
-        const char* _name;
-        const char* _datatype;
-        const char* _unit;
-        const char* _format;
-        bool        _settable = false;
-        bool        _retained = true;
-
-    public:
-        Property() : _id(""), _name(""), _datatype(""), _unit(""), _format(""), _settable(false), _retained(true){}
-        Property* setId(const char* id);
-        Property* setName(const char* name);
-        Property* setDataType(const char* type);
-        Property* setUnit(const char* unit);
-        Property* setFormat(const char* format);
-        Property* setSettable(bool settable);
-        Property* setRetained(bool retained);
-        
-        const char* getId();
-        const char* getName();
-        const char* getDataType();
-        const char* getUnit();
-        const char* getFormat();
-        bool isSettable();
-        bool isRetained();
-};
-
-class Channel {
-    public:
-        Channel(const char* id, const char* name, uint8_t pin, uint8_t pinMode, uint8_t state);
-        Channel(const char* id, const char* name, uint8_t pin, uint8_t pinMode, uint8_t state, uint16_t timer);
-        ~Channel();
-
-        const char*     id;
-        char*           name;
-        uint8_t         pin;
-        uint8_t         pinMode;
-        uint8_t         state;
-        unsigned long   timer;
-        bool            enabled;
-        Property*       prop;
-
-        unsigned long   timerControl;
-        
-        void        init(const char* id, const char* name, uint8_t pin, uint8_t pinMode, uint8_t state, uint16_t timer);
-
-        // Updates the channelĂ‚Â´s name
-        void        updateName (const char *v);
-        // Updates the timer control setting it to timer time from now
-        void        updateTimerControl();
-        // Returns if the channel is enabled or not
-        bool        isEnabled ();
-        // Returns the property that the channel exposes
-        Property*   property();
-};
 
 /*
 Provides this functionality:
@@ -130,7 +73,7 @@ class ESPDomotic {
         String              getStationTopic (String cmd);
         // Returns the mqtt topic to which a channel may be subscribed
         String              getChannelTopic (Channel *c, String cmd);
-
+        
         // Homie functions
         void                setFirmwareName (const char *fwName);
         const char*         getFirmwareName ();
@@ -177,7 +120,6 @@ class ESPDomotic {
 
     private:
         const char*     _moduleType     = "generic";
-        const char*     _deviceName     = "generic";
         const char*     _apSSID         = NULL;
         uint8_t         _feedbackPin    = _invalidPinNo;
         Channel**       _channels;
@@ -196,7 +138,6 @@ class ESPDomotic {
         void            subscribe();
         void            homieSignUp();
         void            sendStats();
-        String          toStringIp(IPAddress ip);
         #endif
         
         /* Utils */
