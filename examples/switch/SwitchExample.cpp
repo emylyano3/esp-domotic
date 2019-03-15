@@ -1,4 +1,5 @@
-#include <ESPDomotic.h>
+#include "ESPDomotic.hpp"
+#include "Logger.hpp"
 
 void processInput();
 void mqttConnectionCallback();
@@ -23,22 +24,6 @@ const uint8_t LED_PIN     = 12;
 
 Channel _light ("A", "Light", RELAY_PIN, OUTPUT, HIGH);
 
-template <class T> void log (T text) {
-  #ifdef LOGGING
-  Serial.print("*SW: ");
-  Serial.println(text);
-  #endif
-}
-
-template <class T, class U> void log (T key, U value) {
-  #ifdef LOGGING
-  Serial.print("*SW: ");
-  Serial.print(key);
-  Serial.print(": ");
-  Serial.println(value);
-  #endif
-}
-
 ESPDomotic  _domoticModule;
 uint8_t     switchState = LOW;
 
@@ -52,7 +37,7 @@ void setup() {
   delay(500);
   Serial.println();
   switchState = digitalRead(SWITCH_PIN);
-  log("Starting module");
+  debug("Starting module");
   String ssid = "Light switch " + String(ESP.getChipId());
   _domoticModule.setPortalSSID(ssid.c_str());
   #ifndef ESP01
@@ -76,12 +61,12 @@ void loop() {
 void processInput() {
   int read = digitalRead(SWITCH_PIN);
   if (read != switchState) {
-    log(F("Switch state has changed"));
+    debug(F("Switch state has changed"));
     switchState = read;
     _light.state = _light.state == LOW ? HIGH : LOW;
     digitalWrite(_light.pin, _light.state);
     _domoticModule.getMqttClient()->publish(_domoticModule.getChannelTopic(&_light, "feedback/state").c_str(), _light.state == LOW ? "1" : "0");
-    log(F("Output channel state changed to"), _light.state == LOW ? "ON" : "OFF");
+    debug(F("Output channel state changed to"), _light.state == LOW ? "ON" : "OFF");
   }
 }
 

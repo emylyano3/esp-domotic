@@ -1,6 +1,7 @@
 #include <FS.h>
-#include <ESPDomotic.h>
+#include <ESPDomotic.hpp>
 #include <ESPConfig.h>
+#include "Logger.hpp"
 
 #include <ESP8266HTTPUpdateServer.h>
 
@@ -331,56 +332,56 @@ void ESPDomotic::homieSignUp() {
   #endif
   // /homie/deviceID
   String baseTopic = String("homie/") + String(getModuleType()) + "_" + String(ESP.getChipId());
-  debug("Base topic", baseTopic);
-  debug("Publishing homie version");
+  debug(F("Base topic"), baseTopic);
+  debug(F("Publishing homie version"));
   publish(String(baseTopic + "/$homie").c_str(), _homieVersion);
   //Friendly name
-  debug("Publishing device name");
+  debug(F("Publishing device name"));
   publish(String(baseTopic + "/$name").c_str(), getModuleName());
-  debug("Publishing local ip");
+  debug(F("Publishing local ip"));
   // publish(String(baseTopic + "/$localip").c_str(), "192.168.1.104");
   publish(String(baseTopic + "/$localip").c_str(), toStringIp(WiFi.localIP()).c_str());
-  debug("Publishing mac address");
+  debug(F("Publishing mac address"));
   publish(String(baseTopic + "/$mac").c_str(), WiFi.macAddress().c_str());
-  debug("Publishing firmware name");
+  debug(F("Publishing firmware name"));
   publish(String(baseTopic + "/$fw/name").c_str(), _fwName);
-  debug("Publishing firmware version");
+  debug(F("Publishing firmware version"));
   publish(String(baseTopic + "/$fw/version").c_str(), _fwVersion);
   //Iterate channels and build a comma separated list of them
   String nodes = "";
   for (uint8_t i = 0; i < _channelsCount; ++i) {
     nodes += _channels[i]->id;
   }
-  debug("Publishing nodes");
+  debug(F("Publishing nodes"));
   publish(String(baseTopic + "/$nodes").c_str(), nodes.c_str());
-  debug("Publishing implementation");
+  debug(F("Publishing implementation"));
   publish(String(baseTopic + "/$implementation").c_str(), _implementation);
-  debug("Publishing state");
+  debug(F("Publishing state"));
   publish(String(baseTopic + "/$state").c_str(), "init");
-  debug("Publishing stats");
+  debug(F("Publishing stats"));
   publish(String(baseTopic + "/$stats").c_str(), "uptime,signal");
   char buff[5];
-  debug("Publishing stats interval");
+  debug(F("Publishing stats interval"));
   // publish(String(baseTopic + "/$stats/interval").c_str(), "60");
   publish(String(baseTopic + "/$stats/interval").c_str(), itoa(getStatsInterval(), buff, 10));
   
-  debug("Publishing nodes details");
+  debug(F("Publishing nodes details"));
   //Iterate channels and send its properties. Each channel is a node.
   for (uint8_t i = 0; i < _channelsCount; ++i) {
     String channelTopic = baseTopic + "/" + String(_channels[i]->id);
-    debug("Channel topic", channelTopic);
-    debug("Publishing node name");
+    debug(F("Channel topic"), channelTopic);
+    debug(F("Publishing node name"));
     publish(String(channelTopic + "/$name").c_str(), _channels[i]->name); // required
     //TODO Decidir si dejar al usuario configurar el tipo de nodo (canal) o usar el "module type"
-    debug("Publishing node type");
+    debug(F("Publishing node type"));
     publish(String(channelTopic + "/$type").c_str(), getModuleType()); // required
     // publish(String(channelTopic + "/$array").c_str(), "on"); // required if the node is an array
 
-    debug("Publishing node properties");
+    debug(F("Publishing node properties"));
     publish(String(channelTopic + "/$properties").c_str(), "on"); // required
     //Specification of each property
     String propertyTopic = channelTopic + "/" + String(_channels[i]->property()->getId());
-    debug("Property topic", propertyTopic);
+    debug(F("Property topic"), propertyTopic);
     publish(String(propertyTopic + "/$name").c_str(), _channels[i]->property()->getName()); // not required default ""
     publish(String(propertyTopic + "/$settable").c_str(), _channels[i]->property()->isSettable() ? "true" : "false"); // not required default false
     publish(String(propertyTopic + "/$retained").c_str(), _channels[i]->property()->isRetained() ? "true" : "false"); // not required default true
@@ -586,7 +587,7 @@ void ESPDomotic::saveConfig () {
     file.close();
   } else {
     #ifdef LOGGING
-    debug(F("Failed to open config file for writing"));
+    debug("Failed to open config file for writing");
     #endif
   }
 }
@@ -661,7 +662,7 @@ bool ESPDomotic::loadChannelsSettings () {
     return false;
   } else {
     #ifdef LOGGING
-    debug(F("No channel configured"));
+    debug("No channel configured");
     #endif
     return false;
   }
@@ -909,17 +910,3 @@ bool ESPDomotic::updateChannelTimer(Channel* channel, uint8_t* payload, unsigned
   channel->timer = newTimer * 60 * 1000; // received in minutes set in millis
   return timerChanged;
 }
-
-#ifdef LOGGING
-template <class T> void ESPDomotic::debug (T text) {
-  Serial.print("*DOMO: ");
-  Serial.println(text);
-}
-
-template <class T, class U> void ESPDomotic::debug (T key, U value) {
-  Serial.print("*DOMO: ");
-  Serial.print(key);
-  Serial.print(": ");
-  Serial.println(value);
-}
-#endif

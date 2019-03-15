@@ -18,6 +18,7 @@ const uint8_t       _paramValueMaxLength          = 20;
 const uint8_t       _paramIPValueLength           = 16;   // IP max length is 15 chars
 const uint8_t       _paramPortValueLength         = 6;    // port range is from 0 to 65535
 
+
 /*
 Provides this functionality:
 > HTTP update
@@ -113,10 +114,6 @@ class ESPDomotic {
         // Loads a file into the buffer.
         void            loadFile (const char* fileName, char buff[], size_t size);
 
-        /* Logging */
-        template <class T> void             debug(T text);
-        template <class T, class U> void    debug(T key, U value);
-
     private:
         const char*     _moduleType     = "generic";
         const char*     _apSSID         = NULL;
@@ -135,8 +132,11 @@ class ESPDomotic {
         void            receiveMqttMessage(char* topic, uint8_t* payload, unsigned int length);
         void            connectBroker();
         void            subscribe();
+        void            publish(const char* topic, const char* payload, bool retained);
+        void            publish(const char* topic, const char* payload);
         void            homieSignUp();
         void            sendStats();
+        String          toStringIp(IPAddress ip);
         #endif
         
         /* Utils */
