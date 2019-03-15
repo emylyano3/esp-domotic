@@ -1,7 +1,9 @@
 #pragma once
 
 #include <Arduino.h>
+#include <ESPConfig.h>
 #include "Channel.hpp"
+#include "Settings.hpp"
 
 #ifndef MQTT_OFF
 #include <PubSubClient.h>
@@ -108,17 +110,21 @@ class ESPDomotic {
         // To enable/disable a channel
         bool            enableChannel(Channel* c, unsigned char* payload, unsigned int length);
 
-        /* Utils */
-        // Returns the size of a file
-        size_t          getFileSize (const char* fileName);
-        // Loads a file into the buffer.
-        void            loadFile (const char* fileName, char buff[], size_t size);
-
     private:
         const char*     _moduleType     = "generic";
         const char*     _apSSID         = NULL;
         uint8_t         _feedbackPin    = _invalidPinNo;
+        
+        /* Config params */
+        #ifndef MQTT_OFF
+        ESPConfigParam*  _mqttPort;
+        ESPConfigParam*  _mqttHost;
+        #endif
+        ESPConfigParam*  _moduleName;
+        ESPConfigParam*  _moduleLocation;
+        
         Channel**       _channels;
+        Settings*       _settings;
 
         #ifndef MQTT_OFF
         /* Mqtt callbacks */
@@ -136,11 +142,7 @@ class ESPDomotic {
         void            publish(const char* topic, const char* payload);
         void            homieSignUp();
         void            sendStats();
+        void            saveConfig();
         String          toStringIp(IPAddress ip);
         #endif
-        
-        /* Utils */
-        bool            loadConfig();
-        void            saveConfig();
-        bool            loadChannelsSettings();
 };
