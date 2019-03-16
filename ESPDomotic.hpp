@@ -77,12 +77,7 @@ class ESPDomotic {
         String              getChannelTopic (Channel *c, String cmd);
         
         // Homie functions
-        void                setFirmwareName (const char *fwName);
-        const char*         getFirmwareName ();
-        void                setFirmwareVersion (const char *fwVersion);
-        const char*         getFirmwareVersion ();
-        void                setStatsInterval (uint8_t interval);
-        uint8_t             getStatsInterval ();
+        void                setFirmware (const char *name, const char *version);
         #endif
 
         /*HTTP Server*/
@@ -138,10 +133,9 @@ class ESPDomotic {
         void            receiveMqttMessage(char* topic, uint8_t* payload, unsigned int length);
         void            connectBroker();
         void            subscribe();
-        void            publish(const char* topic, const char* payload, bool retained);
-        void            publish(const char* topic, const char* payload);
+        bool            publish(const char* topic, const char* payload, bool retained);
+        bool            publish(const char* topic, const char* payload);
         void            homieSignUp();
-        void            sendStats();
         void            saveConfig();
         String          toStringIp(IPAddress ip);
         #endif

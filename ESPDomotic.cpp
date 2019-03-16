@@ -35,9 +35,8 @@ uint8_t         _qos                  = 1;
 
 const char*     _homieVersion         = "3.1.0";
 const char*     _implementation       = "esp8266";
-const char*     _fwVersion            = "";
-const char*     _fwName               = "";
-uint8_t         _statsInterval        = 60;
+const char*     _fwVersion            = NULL;
+const char*     _fwName               = NULL;
 
 ESPDomotic::ESPDomotic() {
   _channels = (Channel**)malloc(_channelsMax * sizeof(Channel*));
@@ -276,66 +275,67 @@ void ESPDomotic::connectBroker() {
 }
 
 void ESPDomotic::homieSignUp() {
-  #ifdef LOGGING
-  debug(F("Homie sign up"));
-  #endif
-  // /homie/deviceID
-  debug(F("Device details"));
-  String baseTopic = String("homie/") + String(getModuleType()) + "_" + String(ESP.getChipId());
-  publish(String(baseTopic + "/$homie").c_str(), _homieVersion);
-  //Friendly name
-  publish(String(baseTopic + "/$name").c_str(), getModuleName());
-  // publish(String(baseTopic + "/$localip").c_str(), "192.168.1.104");
-  publish(String(baseTopic + "/$localip").c_str(), toStringIp(WiFi.localIP()).c_str());
-  publish(String(baseTopic + "/$mac").c_str(), WiFi.macAddress().c_str());
-  publish(String(baseTopic + "/$fw/name").c_str(), _fwName);
-  publish(String(baseTopic + "/$fw/version").c_str(), _fwVersion);
-  //Iterate channels and build a comma separated list of them
-  String nodes = "";
-  for (uint8_t i = 0; i < _channelsCount; ++i) {
-    nodes += _channels[i]->id;
-  }
-  publish(String(baseTopic + "/$nodes").c_str(), nodes.c_str());
-  publish(String(baseTopic + "/$implementation").c_str(), _implementation);
-  publish(String(baseTopic + "/$state").c_str(), "init");
-  publish(String(baseTopic + "/$stats").c_str(), "uptime,signal");
-  char buff[5];
-  publish(String(baseTopic + "/$stats/interval").c_str(), itoa(getStatsInterval(), buff, 10));
-  debug(F("Nodes details"));
-  //Iterate channels and send its properties. Each channel is a node.
-  for (uint8_t i = 0; i < _channelsCount; ++i) {
-    String channelTopic = baseTopic + "/" + String(_channels[i]->id);
-    publish(String(channelTopic + "/$name").c_str(), _channels[i]->name); // required
-    //TODO Decidir si dejar al usuario configurar el tipo de nodo (canal) o usar el "module type"
-    publish(String(channelTopic + "/$type").c_str(), getModuleType()); // required
-    // publish(String(channelTopic + "/$array").c_str(), "on"); // required if the node is an array
-    debug(F("Node properties"));
-    publish(String(channelTopic + "/$properties").c_str(), "on"); // required
-    //Specification of each property
-    String propertyTopic = channelTopic + "/" + String(_channels[i]->property()->getId());
-    publish(String(propertyTopic + "/$name").c_str(), _channels[i]->property()->getName()); // not required default ""
-    publish(String(propertyTopic + "/$settable").c_str(), _channels[i]->property()->isSettable() ? "true" : "false"); // not required default false
-    publish(String(propertyTopic + "/$retained").c_str(), _channels[i]->property()->isRetained() ? "true" : "false"); // not required default true
-    publish(String(propertyTopic + "/$datatype").c_str(), _channels[i]->property()->getDataType()); // not required default String
-    if (_channels[i]->property()->getUnit() && _channels[i]->property()->getUnit()[0] != '\0') {
-      publish(String(propertyTopic + "/$unit").c_str(), _channels[i]->property()->getUnit()); // not required default ""
+  if (_fwName) {
+    #ifdef LOGGING
+    debug(F("Homie sign up"));
+    #endif
+    // /homie/deviceID
+    debug(F("Device details"));
+    String baseTopic = String("homie/") + String(getModuleType()) + "_pepelui";
+    publish(String(baseTopic + "/$homie").c_str(), _homieVersion);
+    //Friendly name
+    publish(String(baseTopic + "/$name").c_str(), getModuleName());
+    // publish(String(baseTopic + "/$localip").c_str(), "192.168.1.104");
+    publish(String(baseTopic + "/$localip").c_str(), toStringIp(WiFi.localIP()).c_str());
+    publish(String(baseTopic + "/$mac").c_str(), WiFi.macAddress().c_str());
+    publish(String(baseTopic + "/$fw/name").c_str(), _fwName);
+    publish(String(baseTopic + "/$fw/version").c_str(), _fwVersion);
+    //Iterate channels and build a comma separated list of them
+    String nodes = "";
+    for (uint8_t i = 0; i < _channelsCount; ++i) {
+      nodes += _channels[i]->id;
     }
-    if (_channels[i]->property()->getFormat() && _channels[i]->property()->getFormat()[0] != '\0') {
-      publish(String(propertyTopic + "/$format").c_str(), _channels[i]->property()->getFormat()); // required just for color and enum
+    publish(String(baseTopic + "/$nodes").c_str(), nodes.c_str());
+    publish(String(baseTopic + "/$implementation").c_str(), _implementation);
+    publish(String(baseTopic + "/$state").c_str(), "init");
+    debug(F("Nodes details"));
+    //Iterate channels and send its properties. Each channel is a node.
+    for (uint8_t i = 0; i < _channelsCount; ++i) {
+      String channelTopic = baseTopic + "/" + String(_channels[i]->id);
+      publish(String(channelTopic + "/$name").c_str(), _channels[i]->name); // required
+      //TODO Decidir si dejar al usuario configurar el tipo de nodo (canal) o usar el "module type"
+      publish(String(channelTopic + "/$type").c_str(), getModuleType()); // required
+      // publish(String(channelTopic + "/$array").c_str(), "on"); // required if the node is an array
+      debug(F("Node properties"));
+      publish(String(channelTopic + "/$properties").c_str(), "on"); // required
+      //Specification of each property
+      String propertyTopic = channelTopic + "/" + String(_channels[i]->property()->getId());
+      publish(String(propertyTopic + "/$name").c_str(), _channels[i]->property()->getName()); // not required default ""
+      publish(String(propertyTopic + "/$settable").c_str(), _channels[i]->property()->isSettable() ? "true" : "false"); // not required default false
+      publish(String(propertyTopic + "/$retained").c_str(), _channels[i]->property()->isRetained() ? "true" : "false"); // not required default true
+      publish(String(propertyTopic + "/$datatype").c_str(), _channels[i]->property()->getDataType()); // not required default String
+      if (_channels[i]->property()->getUnit() && _channels[i]->property()->getUnit()[0] != '\0') {
+        publish(String(propertyTopic + "/$unit").c_str(), _channels[i]->property()->getUnit()); // not required default ""
+      }
+      if (_channels[i]->property()->getFormat() && _channels[i]->property()->getFormat()[0] != '\0') {
+        publish(String(propertyTopic + "/$format").c_str(), _channels[i]->property()->getFormat()); // required just for color and enum
+      }
     }
+  } else {
+    debug("✖ Firmware was not set. Not advertising device.");
   }
 }
 
-void ESPDomotic::publish(const char* topic, const char* payload) {
- publish(topic, payload, false);
+bool ESPDomotic::publish(const char* topic, const char* payload) {
+  return publish(topic, payload, true);
 }
 
-void ESPDomotic::publish(const char* topic, const char* payload, bool retained) {
+bool ESPDomotic::publish(const char* topic, const char* payload, bool retained) {
   #ifdef LOGGING
   Serial.printf("MQTT Publishing: [%s=%s]", topic, payload);
   Serial.println();
   #endif
-  getMqttClient()->publish(topic, payload, retained);
+  return getMqttClient()->publish(topic, payload, retained);
 }
 
 void ESPDomotic::subscribe() {
@@ -358,12 +358,6 @@ void ESPDomotic::subscribe() {
   }
 }
 
-void ESPDomotic::sendStats() {
-  String baseTopic = String("homie/" + ESP.getChipId());
-  publish(String(baseTopic + "/$stats/uptime").c_str(), "getUpTime()");
-  publish(String(baseTopic + "/$stats/signal").c_str(), "getSignal()");
-}
-
 String ESPDomotic::toStringIp(IPAddress ip) {
   String res = "";
   for (int i = 0; i < 3; i++) {
@@ -381,34 +375,9 @@ String ESPDomotic::getStationTopic (String suffix) {
   return String(getModuleType()) + F("/") + getModuleLocation() + F("/") + getModuleName() + F("/") + suffix;
 }
 
-void ESPDomotic::setFirmwareName (const char *fwName) {
-  _fwName = fwName;
-}
-
-void ESPDomotic::setFirmwareVersion (const char *fwVersion) {
-  _fwVersion = fwVersion;
-}
-
-const char* ESPDomotic::getFirmwareName () {
-  if (!_fwName) {
-    _fwName = "generic";
-  }
-  return _fwName;
-}
-
-const char* ESPDomotic::getFirmwareVersion () {
-  if (!_fwVersion) {
-    _fwVersion = "v0.1";
-  }
-  return _fwVersion;
-} 
-
-void ESPDomotic::setStatsInterval (uint8_t interval) {
-  _statsInterval = interval;
-}
-
-uint8_t ESPDomotic::getStatsInterval () {
-  return _statsInterval;
+void ESPDomotic::setFirmware (const char *name, const char *version) {
+  _fwName = name;
+  _fwVersion = version;
 }
 #endif
 
