@@ -6,6 +6,8 @@
 
 #ifndef ESP01
 #include <ESP8266mDNS.h>
+#endif
+#ifdef USE_JSON
 #include <ArduinoJson.h>
 #endif
 
@@ -33,7 +35,6 @@ unsigned long             _mqttNextConnAtte     = 0;
 char                      _stationName[_paramValueMaxLength * 3 + 4];
 
 bool            _runningStandAlone    = false;
-const uint8_t   _channelsMax          = 5;
 uint8_t         _channelsCount        = 0;
 
 uint16_t        _wifiConnectTimeout   = 30;
@@ -42,7 +43,7 @@ uint16_t        _configFileSize       = 200;
 
 
 ESPDomotic::ESPDomotic() {
-  _channels = (Channel**)malloc(_channelsMax * sizeof(Channel*));
+  
 }
 
 ESPDomotic::~ESPDomotic() {}
@@ -52,42 +53,43 @@ void ESPDomotic::init() {
   debug(F("ESP Domotic module INIT"));
   #endif
   /* Wifi connection */
-  ESPConfig _moduleConfig;
-  _moduleConfig.addParameter(&_moduleLocation);
-  _moduleConfig.addParameter(&_moduleName);
+  ESPConfig* _moduleConfig = new ESPConfig;
+  _moduleConfig->addParameter(&_moduleLocation);
+  _moduleConfig->addParameter(&_moduleName);
   #ifndef MQTT_OFF
-  _moduleConfig.addParameter(&_mqttHost);
-  _moduleConfig.addParameter(&_mqttPort);
+  _moduleConfig->addParameter(&_mqttHost);
+  _moduleConfig->addParameter(&_mqttPort);
   #endif
-  _moduleConfig.setWifiConnectTimeout(_wifiConnectTimeout);
-  _moduleConfig.setConfigPortalTimeout(_configPortalTimeout);
-  _moduleConfig.setAPStaticIP(IPAddress(10,10,10,10),IPAddress(IPAddress(10,10,10,10)),IPAddress(IPAddress(255,255,255,0)));
+  _moduleConfig->setWifiConnectTimeout(_wifiConnectTimeout);
+  _moduleConfig->setConfigPortalTimeout(_configPortalTimeout);
+  _moduleConfig->setAPStaticIP(IPAddress(10,10,10,10),IPAddress(IPAddress(10,10,10,10)),IPAddress(IPAddress(255,255,255,0)));
   if (_apSSID) {
-    _moduleConfig.setPortalSSID(_apSSID);
+    _moduleConfig->setPortalSSID(_apSSID);
   } else {
     String ssid = "Proeza domotic " + String(ESP.getChipId());
-    _moduleConfig.setPortalSSID(ssid.c_str());
+    _moduleConfig->setPortalSSID(ssid.c_str());
   }
-  _moduleConfig.setMinimumSignalQuality(_wifiMinSignalQuality);
-  _moduleConfig.setStationNameCallback(std::bind(&ESPDomotic::getStationName, this));
-  _moduleConfig.setSaveConfigCallback(std::bind(&ESPDomotic::saveConfig, this));
+  _moduleConfig->setMinimumSignalQuality(_wifiMinSignalQuality);
+  _moduleConfig->setStationNameCallback(std::bind(&ESPDomotic::getStationName, this));
+  _moduleConfig->setSaveConfigCallback(std::bind(&ESPDomotic::saveConfig, this));
   if (_feedbackPin != _invalidPinNo) {
     pinMode(_feedbackPin, OUTPUT);
-    _moduleConfig.setFeedbackPin(_feedbackPin);
+    _moduleConfig->setFeedbackPin(_feedbackPin);
   }
-  _runningStandAlone = !_moduleConfig.connectWifiNetwork(loadConfig());
+  _runningStandAlone = !_moduleConfig->connectWifiNetwork(loadConfig());
   #ifdef LOGGING
   debug(F("Connected to wifi"), _runningStandAlone ? "false" : "true");
   #endif
   if (_feedbackPin != _invalidPinNo) {
     if (_runningStandAlone) {
       // could not connect to a wifi net
-      _moduleConfig.blockingFeedback(_feedbackPin, 2000, 1);
+      _moduleConfig->blockingFeedback(_feedbackPin, 2000, 1);
     } else {
       // connected to a wifi net and able to send/receive mqtt messages
-      _moduleConfig.blockingFeedback(_feedbackPin, 100, 10);
+      _moduleConfig->blockingFeedback(_feedbackPin, 100, 10);
     }
   }
+  delete _moduleConfig;
   #ifdef LOGGING
   debug(F("Setting channels pin mode. Channels count"), _channelsCount);
   #endif
@@ -169,7 +171,7 @@ void ESPDomotic::setPortalSSID (const char* ssid) {
 }
 
 void ESPDomotic::addChannel(Channel *channel) {
-  if (_channelsCount < _channelsMax) {
+  if (_channelsCount < MAX_CHANNELS) {
     _channels[_channelsCount++] = channel;
   } else {
     #ifdef LOGGING
@@ -347,10 +349,10 @@ String ESPDomotic::getStationTopic (String suffix) {
 bool ESPDomotic::loadConfig () {
   size_t size = getFileSize("/config.json");
   if (size > 0) {
-    #ifndef ESP01
+    #ifdef USE_JSON
     char buff[size];
     loadFile("/config.json", buff, size);
-    DynamicJsonDocument doc(200);
+    StaticJsonDocument<200> doc;
     DeserializationError error = deserializeJson(doc, buff);
     if (!error) {
       #ifndef MQTT_OFF
@@ -419,8 +421,8 @@ bool ESPDomotic::loadConfig () {
 void ESPDomotic::saveConfig () {
   File file = SPIFFS.open("/config.json", "w");
   if (file) {
-    #ifndef ESP01
-    DynamicJsonDocument doc(200);
+    #ifdef USE_JSON
+    StaticJsonDocument<200> doc;
     //TODO Trim param values
     #ifndef MQTT_OFF
     doc[_mqttHost.getName()] = _mqttHost.getValue();
@@ -457,22 +459,19 @@ bool ESPDomotic::loadChannelsSettings () {
   if (_channelsCount > 0) {
     size_t size = getFileSize("/settings.json");
     if (size > 0) {
-      #ifndef ESP01
+      #ifdef USE_JSON
       char buff[size];
       loadFile("/settings.json", buff, size);
-      DynamicJsonDocument doc(200);
+      StaticJsonDocument<384> doc;
       DeserializationError error = deserializeJson(doc, buff);
       #ifdef LOGGING
       serializeJsonPretty(doc, Serial);
       #endif
       if (!error) {
         for (uint8_t i = 0; i < _channelsCount; ++i) {
-          _channels[i]->updateName(doc[String(_channels[i]->id) + "_name"]);
-          _channels[i]->timer = doc[String(_channels[i]->id) + "_timer"];
-          _channels[i]->enabled = doc[String(_channels[i]->id) + "_enabled"];
-          #ifdef LOGGING
-          serializeJsonPretty(doc, Serial);
-          #endif
+          _channels[i]->updateName(doc[String(_channels[i]->id) + "_n"]);
+          _channels[i]->timer = doc[String(_channels[i]->id) + "_t"];
+          _channels[i]->enabled = doc[String(_channels[i]->id) + "_e"];
         }
         return true;
       } else {
@@ -498,11 +497,11 @@ bool ESPDomotic::loadChannelsSettings () {
           #endif
           for (uint8_t i = 0; i < _channelsCount; ++i) {
             if (key.startsWith(String(_channels[i]->id) + "_")) {
-              if (key.endsWith("name")) {
+              if (key.endsWith("_n")) {
                 _channels[i]->updateName(val.c_str());
-              } else if (key.endsWith("timer")) {
+              } else if (key.endsWith("_t")) {
                 _channels[i]->timer = val.toInt();
-              } else if (key.endsWith("enabled")) {
+              } else if (key.endsWith("_e")) {
                 _channels[i]->enabled = val.equals("1");
               }
             } 
@@ -530,13 +529,13 @@ bool ESPDomotic::loadChannelsSettings () {
 void ESPDomotic::saveChannelsSettings () {
   File file = SPIFFS.open("/settings.json", "w");
   if (file) {
-    #ifndef ESP01
-    DynamicJsonDocument doc(200);
+    #ifdef USE_JSON
     //TODO Trim param values
+    StaticJsonDocument<384> doc;
     for (uint8_t i = 0; i < _channelsCount; ++i) {
-      doc[String(_channels[i]->id) + "_name"] = _channels[i]->name;
-      doc[String(_channels[i]->id) + "_timer"] = _channels[i]->timer;
-      doc[String(_channels[i]->id) + "_enabled"] = _channels[i]->enabled;
+      doc[String(_channels[i]->id) + "_n"] = _channels[i]->name;
+      doc[String(_channels[i]->id) + "_t"] = _channels[i]->timer;
+      doc[String(_channels[i]->id) + "_e"] = _channels[i]->enabled;
     }
     serializeJson(doc, file);
     #ifdef LOGGING
@@ -545,11 +544,11 @@ void ESPDomotic::saveChannelsSettings () {
     #endif
     #else
     for (uint8_t i = 0; i > _channelsCount; ++i) {
-      String line = String(_channels[i]->id) + "_name=" + String(_channels[i]->name);
+      String line = String(_channels[i]->id) + "_n=" + String(_channels[i]->name);
       file.println(line);
-      line = String(_channels[i]->id) + "_timer=" + String(_channels[i]->timer);
+      line = String(_channels[i]->id) + "_t=" + String(_channels[i]->timer);
       file.println(line);
-      line = String(_channels[i]->id) + "_enabled=" + String(_channels[i]->enabled);
+      line = String(_channels[i]->id) + "_e=" + String(_channels[i]->enabled);
       file.println(line);
     }
     #endif
@@ -663,7 +662,7 @@ void ESPDomotic::setConfigFileSize (uint16_t bytes) {
 
 bool ESPDomotic::enableChannel(Channel* channel, unsigned char* payload, unsigned int length) {
   #ifdef LOGGING
-  debug(F("Ubpading channel enablement"), channel->name);
+  debug(F("Updating channel enablement"), channel->name);
   #endif
   if (length != 1 || !payload) {
     #ifdef LOGGING

@@ -10,6 +10,10 @@
 
 const uint8_t       _invalidPinNo                 = 255;
 
+#ifndef MAX_CHANNELS
+#define MAX_CHANNELS 4
+#endif
+
 #ifndef MQTT_OFF
 const unsigned long _mqttBrokerReconnectionRetry  = 5  * 1000;
 #endif
@@ -139,7 +143,7 @@ class ESPDomotic {
         const char*     _moduleType     = "generic";
         const char*     _apSSID         = NULL;
         uint8_t         _feedbackPin    = _invalidPinNo;
-        Channel**       _channels;
+        Channel*        _channels[MAX_CHANNELS];
 
         #ifndef MQTT_OFF
         /* Mqtt callbacks */
