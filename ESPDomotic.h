@@ -65,6 +65,8 @@ class ESPDomotic {
         void    init();
         // Must be called inside main loop
         void    loop();
+        // Check channels timers and updates its states
+        void    checkChannelsTimers();
 
         /* Module settings */
         // Sets the SSID for the configuration portal (When module enters in AP mode)

@@ -146,6 +146,22 @@ void ESPDomotic::loop() {
     _mqttClient.loop();
     #endif
   }
+  checkChannelsTimers();
+}
+
+void ESPDomotic::checkChannelsTimers() {
+  for (size_t i = 0; i < getChannelsCount(); ++i) {
+    Channel *channel = getChannel(i);
+    // The timer control greater than 0 means that the timer was set and needs to be check 
+    if (channel->timerControl > 0 && channel->isEnabled() && millis() > channel->timerControl) {
+      // Flip the channel state
+      channel->state = channel->state == LOW ? HIGH : LOW;
+      // Setting timerControl to 0 means no need of further timer checking
+      channel->timerControl = 0;
+      digitalWrite(channel->pin, channel->state);
+      getMqttClient()->publish(getChannelTopic(channel, "feedback/state").c_str(), channel->state == LOW ? "1" : "0");
+    }
+  }
 }
 
 #ifndef MQTT_OFF
@@ -613,19 +629,23 @@ void ESPDomotic::receiveMqttMessage(char* topic, uint8_t* payload, unsigned int 
           saveChannelsSettings();
         }
         getMqttClient()->publish(getChannelTopic(channel, "feedback/enabled").c_str(), channel->enabled ? "1" : "0");
+        break;
       } else if (getChannelTopic(channel, "command/timer").equals(topic)) {
         if (updateChannelTimer(channel, payload, length)) {
           saveChannelsSettings();
         }
+        break;
       } else if (getChannelTopic(channel, "command/rename").equals(topic)) {
         if (renameChannel(channel, payload, length)) {
           saveChannelsSettings();
         }
+        break;
       } else if (channel->pinMode == OUTPUT && getChannelTopic(channel, "command/state").equals(topic)) {
         // command/state topic is used to change the state on the channel with a desired value. So, receiving a mqtt
         // message with this purpose has sense only if the channel is an output one.
         changeState(channel, payload, length);
         getMqttClient()->publish(getChannelTopic(channel, "feedback/state").c_str(), channel->state == LOW ? "1" : "0");
+        break;
       }
     }
   }
