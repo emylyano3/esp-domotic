@@ -15,7 +15,7 @@ const uint8_t       _invalidPinNo                 = 255;
 #endif
 
 #ifndef MQTT_OFF
-const unsigned long _mqttBrokerReconnectionRetry  = 5  * 1000;
+const unsigned long _mqttBrokerReconnectionRetry  = 5 * 1000;
 #endif
 const uint8_t       _wifiMinSignalQuality         = 30;
 const uint8_t       _channelNameMaxLength         = 20;
@@ -35,6 +35,7 @@ class Channel {
         uint8_t         state;
         unsigned long   timer;
         bool            enabled;
+        bool            locallyChanged;
 
         unsigned long   timerControl;
         
@@ -44,8 +45,8 @@ class Channel {
         void    updateName (const char *v);
         // Updates the timer control setting it to timer time ftom now
         void    updateTimerControl();
-        // Returns if the channel is enabled or not
-        bool    isEnabled ();
+
+        bool    isEnabled();
 };
 
 /*
