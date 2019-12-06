@@ -151,8 +151,10 @@ void ESPDomotic::checkChannelsTimers() {
   for (size_t i = 0; i < getChannelsCount(); ++i) {
     Channel *channel = getChannel(i);
     // The timer control greater than 0 means that the timer was set and needs to be check 
-    if (channel->timerControl > 0 && channel->locallyChanged && millis() > channel->timerControl) {
+    if (channel->isEnabled() && channel->timerControl > 0 && channel->locallyChanged && millis() > channel->timerControl) {
+      #ifdef LOGGING
       debug("Channel timer triggered. Changing state: ", channel->name);
+      #endif
       // Flip the channel state
       channel->state = channel->state == LOW ? HIGH : LOW;
       // Setting timerControl to 0 means no need of further timer checking
@@ -226,7 +228,7 @@ void ESPDomotic::receiveMqttMessage(char* topic, uint8_t* payload, unsigned int 
         if (renameChannel(channel, payload, length)) {
           saveChannelsSettings();
         }
-      } else if (channel->pinMode == OUTPUT && sTopic.endsWith(String(channel->name) + F("/command/state"))) {
+      } else if (channel->isEnabled() && channel->pinMode == OUTPUT && sTopic.endsWith(String(channel->name) + F("/command/state"))) {
         // command/state topic is used to change the state on the channel with a desired value. So, receiving a mqtt
         // message with this purpose has sense only if the channel is an output one.
         changeState(channel, payload, length);
