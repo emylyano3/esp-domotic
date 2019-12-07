@@ -153,9 +153,10 @@ void ESPDomotic::checkChannelsTimers() {
     // The timer control greater than 0 means that the timer was set and needs to be check 
     if (channel->isEnabled() && channel->timerControl > 0 && channel->locallyChanged && millis() > channel->timerControl) {
       #ifdef LOGGING
-      debug("Channel timer triggered. Changing state: ", channel->name);
+      debug("Timer triggered for channel", channel->name);
       #endif
       // Flip the channel state
+      debug("Changing state to", channel->state == LOW ? "[OFF]" : "[ON]");
       channel->state = channel->state == LOW ? HIGH : LOW;
       // Setting timerControl to 0 means no need of further timer checking
       channel->timerControl = 0;
@@ -231,10 +232,16 @@ void ESPDomotic::receiveMqttMessage(char* topic, uint8_t* payload, unsigned int 
       } else if (channel->isEnabled() && channel->pinMode == OUTPUT && sTopic.endsWith(String(channel->name) + F("/command/state"))) {
         // command/state topic is used to change the state on the channel with a desired value. So, receiving a mqtt
         // message with this purpose has sense only if the channel is an output one.
-        changeState(channel, payload, length);
-        channel->updateTimerControl();
-        channel->locallyChanged = true;
-        getMqttClient()->publish(getChannelTopic(channel, "feedback/state").c_str(), channel->state == LOW ? "1" : "0");
+        if (changeState(channel, payload, length)) {
+          if (channel->locallyChanged) {
+            channel->locallyChanged = false;
+            channel->timerControl = 0;
+          } else {
+            channel->updateTimerControl();
+            channel->locallyChanged = true;
+          }
+          getMqttClient()->publish(getChannelTopic(channel, "feedback/state").c_str(), channel->state == LOW ? "1" : "0");
+        }
       }
     }
   }
@@ -359,10 +366,10 @@ bool ESPDomotic::updateChannelTimer(Channel* channel, uint8_t* payload, unsigned
   #endif
   long newTimer = String(buff).toInt();
   #ifdef LOGGING
-  debug(F("Duration"), newTimer);
+  debug(F("Duration in seconds"), newTimer);
   #endif
-  bool timerChanged = channel->timer != (unsigned long) newTimer * 60 * 1000;
-  channel->timer = newTimer * 60 * 1000; // received in minutes set in millis
+  bool timerChanged = channel->timer != (unsigned long) newTimer * 1000;
+  channel->timer = newTimer * 1000; // received in seconds set in millis
   return timerChanged;
 }
 
@@ -808,11 +815,11 @@ Channel::Channel(const char* id, const char* name, uint8_t pin, uint8_t pinMode,
   init(id, name, pin, pinMode, state, -1);
 }
 
-Channel::Channel(const char* id, const char* name, uint8_t pin, uint8_t pinMode, uint8_t state, uint16_t timer) {
+Channel::Channel(const char* id, const char* name, uint8_t pin, uint8_t pinMode, uint8_t state, uint32_t timer) {
   init(id, name, pin, pinMode, state, timer);
 }
 
-void Channel::init(const char* id, const char* name, uint8_t pin, uint8_t pinMode, uint8_t state, uint16_t timer) {
+void Channel::init(const char* id, const char* name, uint8_t pin, uint8_t pinMode, uint8_t state, uint32_t timer) {
   this->id = id;
   this->pin = pin;
   this->state = state;
