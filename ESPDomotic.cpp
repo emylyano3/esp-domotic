@@ -154,9 +154,9 @@ void ESPDomotic::checkChannelsTimers() {
     if (channel->isEnabled() && channel->timerControl > 0 && channel->locallyChanged && millis() > channel->timerControl) {
       #ifdef LOGGING
       debug("Timer triggered for channel", channel->name);
-      #endif
       // Flip the channel state
       debug("Changing state to", channel->state == LOW ? "[OFF]" : "[ON]");
+      #endif
       channel->state = channel->state == LOW ? HIGH : LOW;
       // Setting timerControl to 0 means no need of further timer checking
       channel->timerControl = 0;
