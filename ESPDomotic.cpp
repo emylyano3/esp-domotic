@@ -191,7 +191,7 @@ bool ESPDomotic::updateChannelState (Channel* channel, uint8_t s) {
     }
     updated = true;
   }
-  getMqttClient()->publish(getChannelTopic(channel, "feedback/state").c_str(), channel->state == LOW ? "1" : "0");
+  _mqttClient.publish(getChannelTopic(channel, "feedback/state").c_str(), channel->state == LOW ? "1" : "0");
   return updated;
 }
 
@@ -210,7 +210,7 @@ void ESPDomotic::receiveMqttMessage(char* topic, uint8_t* payload, unsigned int 
         if (enableChannelCommand(channel, payload, length)) {
           saveChannelsSettings();
         }
-        getMqttClient()->publish(getChannelTopic(channel, "feedback/enabled").c_str(), channel->isEnabled() ? "1" : "0");
+        _mqttClient.publish(getChannelTopic(channel, "feedback/enabled").c_str(), channel->isEnabled() ? "1" : "0");
       } else if (sTopic.endsWith(String(channel->name) + F("/command/timer"))) {
         if (updateChannelTimerCommand(channel, payload, length)) {
           saveChannelsSettings();
@@ -302,9 +302,9 @@ bool ESPDomotic::renameChannelCommand(Channel* channel, uint8_t* payload, unsign
     debug(F("New channel name"), newName);
     #endif
     #ifndef MQTT_OFF
-    getMqttClient()->unsubscribe(getChannelTopic(channel, "command/+").c_str());
+    _mqttClient.unsubscribe(getChannelTopic(channel, "command/+").c_str());
     channel->updateName(newName);
-    getMqttClient()->subscribe(getChannelTopic(channel, "command/+").c_str());
+    _mqttClient.subscribe(getChannelTopic(channel, "command/+").c_str());
     #endif
   }
   return renamed;
@@ -640,7 +640,7 @@ void ESPDomotic::connectBroker() {
       #endif
       // subscribe station to any command
       String topic = getStationTopic("command/+");
-      getMqttClient()->subscribe(topic.c_str());
+      _mqttClient.subscribe(topic.c_str());
       #ifdef LOGGING
       debug(F("Subscribed to"), topic.c_str());
       #endif
@@ -650,7 +650,7 @@ void ESPDomotic::connectBroker() {
         #ifdef LOGGING
         debug(F("Subscribed to"), topic.c_str());
         #endif
-        getMqttClient()->subscribe(topic.c_str());
+        _mqttClient.subscribe(topic.c_str());
       }
       if (_mqttConnectionCallback) {
         _mqttConnectionCallback();
@@ -785,6 +785,14 @@ void ESPDomotic::setConfigFileSize (uint16_t bytes) {
 template <class T> void ESPDomotic::debug (T text) {
   Serial.print("*DOMO: ");
   Serial.println(text);
+  #ifdef MQTT_LOG
+  #ifndef MQTT_OFF
+  if (_mqttClient.connected()) {
+    String s = String(ESP.getChipId()) + ": " + String(text);
+    _mqttClient.publish("/domotic/log", s.c_str());
+  }
+  #endif
+  #endif
 }
 
 template <class T, class U> void ESPDomotic::debug (T key, U value) {
@@ -792,6 +800,14 @@ template <class T, class U> void ESPDomotic::debug (T key, U value) {
   Serial.print(key);
   Serial.print(": ");
   Serial.println(value);
+  #ifdef MQTT_LOG
+  #ifndef MQTT_OFF
+  if (_mqttClient.connected()) {
+    String s = String(ESP.getChipId()) + ": " + String(key) + " " + String(value);
+    _mqttClient.publish("/domotic/log", s.c_str());
+  }
+  #endif
+  #endif
 }
 #endif
 
