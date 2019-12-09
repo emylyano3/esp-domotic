@@ -46,6 +46,8 @@ class Channel {
         // Updates the timer control setting it to timer time ftom now
         void    updateTimerControl();
 
+        bool    timeIsUp();
+
         bool    isEnabled();
 };
 
@@ -119,10 +121,6 @@ class ESPDomotic {
         void            saveChannelsSettings ();
         // Updates the state of the channel with the new state
         bool            updateChannelState (Channel* channel, uint8_t state);
-        // // Sets the channel's state lo HIGH
-        // bool            openChannel (Channel* c);
-        // // Sets the channel's state lo LOW
-        // bool            closeChannel (Channel* c);
         // Adds new channel to manage
         void            addChannel(Channel* c);
         // To rename a channel
