@@ -117,20 +117,22 @@ class ESPDomotic {
         uint8_t         getChannelsCount();
         // Save the channel settings in FS
         void            saveChannelsSettings ();
-        // Sets the channel's state lo HIGH
-        bool            openChannel (Channel* c);
-        // Sets the channel's state lo LOW
-        bool            closeChannel (Channel* c);
+        // Updates the state of the channel with the new state
+        bool            updateChannelState (Channel* channel, uint8_t state);
+        // // Sets the channel's state lo HIGH
+        // bool            openChannel (Channel* c);
+        // // Sets the channel's state lo LOW
+        // bool            closeChannel (Channel* c);
         // Adds new channel to manage
         void            addChannel(Channel* c);
         // To rename a channel
-        bool            renameChannel(Channel* c, uint8_t* payload, unsigned int length);
+        bool            renameChannelCommand(Channel* c, uint8_t* payload, unsigned int length);
         // To change the state of a channel. Intened to use with channel configures as OUTPUT
-        bool            changeState(Channel* c, uint8_t* payload, unsigned int length);
+        bool            changeStateCommand(Channel* c, uint8_t* payload, unsigned int length);
         // To update the timer of a channel
-        bool            updateChannelTimer(Channel* c, uint8_t* payload, unsigned int length);
+        bool            updateChannelTimerCommand(Channel* c, uint8_t* payload, unsigned int length);
         // To enable/disable a channel
-        bool            enableChannel(Channel* c, unsigned char* payload, unsigned int length);
+        bool            enableChannelCommand(Channel* c, unsigned char* payload, unsigned int length);
 
         /* Utils */
         // Returns the size of a file
