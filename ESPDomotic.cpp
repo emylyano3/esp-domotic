@@ -812,7 +812,7 @@ template <class T, class U> void ESPDomotic::debug (T key, U value) {
 #endif
 
 Channel::Channel(const char* id, const char* name, uint8_t pin, uint8_t pinMode, uint8_t state) {
-  init(id, name, pin, pinMode, state, -1);
+  init(id, name, pin, pinMode, state, 0;
 }
 
 Channel::Channel(const char* id, const char* name, uint8_t pin, uint8_t pinMode, uint8_t state, uint32_t timer) {
@@ -835,7 +835,7 @@ void Channel::updateName (const char *v) {
 }
 
 void Channel::updateTimerControl() {
-  this->timerControl = this->timer > 0 ? millis() + this->timer : -1;
+  this->timerControl = this->timer > 0 ? millis() + this->timer : 0;
 }
 
 bool Channel::timeIsUp() {
