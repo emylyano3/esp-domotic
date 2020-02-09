@@ -835,7 +835,7 @@ void Channel::updateName (const char *v) {
 }
 
 void Channel::updateTimerControl() {
-  this->timerControl = millis() + this->timer;
+  this->timerControl = this->timer > 0 ? millis() + this->timer : -1;
 }
 
 bool Channel::timeIsUp() {
