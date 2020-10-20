@@ -137,6 +137,13 @@ class ESPDomotic {
         size_t          getFileSize (const char* fileName);
         // Loads a file into the buffer.
         void            loadFile (const char* fileName, char buff[], size_t size);
+        /* 
+            Updates the configuration under the specified key. It will create a new one if none.
+            Returns true if the configuration was correctly created.
+        */
+        bool            updateConf(const char* key, char* value);
+        // Returns the configuracion value that exists under the specified key. Null if none.
+        char*           getConf(const char* key);
 
         /* Logging */
         template <class T> void             debug(T text);

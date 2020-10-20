@@ -1,4 +1,4 @@
-#include <FS.h>
+#include <LittleFS.h>
 #include <ESPDomotic.h>
 #include <ESPConfig.h>
 
@@ -246,7 +246,7 @@ void ESPDomotic::moduleHardReset () {
   #ifdef LOGGING
   debug(F("Doing a module hard reset"));
   #endif
-  SPIFFS.format();
+  LittleFS.format();
   WiFi.disconnect();
   delay(200);
   ESP.restart();
@@ -484,7 +484,7 @@ bool ESPDomotic::loadConfig () {
     }
     #else
     // Avoid using json to reduce build size
-    File configFile = SPIFFS.open("/config.json", "r");
+    File configFile = LittleFS.open("/config.json", "r");
     bool readOK = true;
     while (readOK && configFile.position() < size) {
       String line = configFile.readStringUntil('\n');
@@ -530,7 +530,7 @@ bool ESPDomotic::loadConfig () {
 
 /** callback notifying the need to save config */
 void ESPDomotic::saveConfig () {
-  File file = SPIFFS.open("/config.json", "w");
+  File file = LittleFS.open("/config.json", "w");
   if (file) {
     #ifdef USE_JSON
     StaticJsonDocument<200> doc;
@@ -577,9 +577,9 @@ void ESPDomotic::saveConfig () {
   Otherwise the size of the file is returned.
 */
 size_t ESPDomotic::getFileSize (const char* fileName) {
-  if (SPIFFS.begin()) {
-    if (SPIFFS.exists(fileName)) {
-      File file = SPIFFS.open(fileName, "r");
+  if (LittleFS.begin()) {
+    if (LittleFS.exists(fileName)) {
+      File file = LittleFS.open(fileName, "r");
       if (file) {
         size_t s = file.size();
         file.close();
@@ -602,10 +602,10 @@ size_t ESPDomotic::getFileSize (const char* fileName) {
   return 0;
 }
 
-void ESPDomotic::loadFile (const char* fileName, char buff[], size_t size) {
-  if (SPIFFS.begin()) {
-    if (SPIFFS.exists(fileName)) {
-      File file = SPIFFS.open(fileName, "r");
+void ESPDomotic::loadFile (const char* fileName, char* buff, size_t size) {
+  if (LittleFS.begin()) {
+    if (LittleFS.exists(fileName)) {
+      File file = LittleFS.open(fileName, "r");
       if (file) {
         file.readBytes(buff, size);
         file.close();
@@ -639,7 +639,7 @@ void ESPDomotic::connectBroker() {
       debug(F("MQTT broker Connected"));
       #endif
       // subscribe station to any command
-      String topic = getStationTopic("command/+");
+      String topic = getStationTopic("command/#");
       _mqttClient.subscribe(topic.c_str());
       #ifdef LOGGING
       debug(F("Subscribed to"), topic.c_str());
@@ -663,6 +663,33 @@ void ESPDomotic::connectBroker() {
   }
 }
 #endif
+
+bool ESPDomotic::updateConf(const char* key, char* value) {
+  File file = LittleFS.open(key, "w");
+  #ifdef LOGGING
+  debug("Updating conf with size", strlen(value));
+  #endif
+  if (file) {
+    file.print(value);
+    file.close();
+    return true; 
+  }
+  return false;
+}
+
+char* ESPDomotic::getConf(const char* key) {
+  size_t size = getFileSize(key);
+  #ifdef LOGGING
+  debug("Getting conf with size", size);
+  #endif
+  if (size > 0) {
+    char* file = new char[size + 1];
+    loadFile(key, file, size);
+    file[size] = '\0'; // workaround para evitar cargar basura desde el fs.
+    return file;
+  }
+  return NULL;
+}
 
 bool ESPDomotic::loadChannelsSettings () {
   if (_channelsCount > 0) {
@@ -691,7 +718,7 @@ bool ESPDomotic::loadChannelsSettings () {
       }
       #else
       // Avoid using json to reduce build size
-      File configFile = SPIFFS.open("/settings.json", "r");
+      File configFile = LittleFS.open("/settings.json", "r");
       bool readOK = true;
       while (readOK && configFile.position() < size) {
         String line = configFile.readStringUntil('\n');
@@ -736,7 +763,7 @@ bool ESPDomotic::loadChannelsSettings () {
 }
 
 void ESPDomotic::saveChannelsSettings () {
-  File file = SPIFFS.open("/settings.json", "w");
+  File file = LittleFS.open("/settings.json", "w");
   if (file) {
     #ifdef USE_JSON
     //TODO Trim param values
@@ -812,7 +839,7 @@ template <class T, class U> void ESPDomotic::debug (T key, U value) {
 #endif
 
 Channel::Channel(const char* id, const char* name, uint8_t pin, uint8_t pinMode, uint8_t state) {
-  init(id, name, pin, pinMode, state, 0);
+  init(id, name, pin, pinMode, state, -1);
 }
 
 Channel::Channel(const char* id, const char* name, uint8_t pin, uint8_t pinMode, uint8_t state, uint32_t timer) {
@@ -835,7 +862,7 @@ void Channel::updateName (const char *v) {
 }
 
 void Channel::updateTimerControl() {
-  this->timerControl = this->timer > 0 ? millis() + this->timer : 0;
+  this->timerControl = millis() + this->timer;
 }
 
 bool Channel::timeIsUp() {
