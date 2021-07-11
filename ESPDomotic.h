@@ -126,7 +126,7 @@ class ESPDomotic {
         // To rename a channel
         bool            renameChannelCommand(Channel* c, uint8_t* payload, unsigned int length);
         // To change the state of a channel. Intened to use with channel configures as OUTPUT
-        bool            changeStateCommand(Channel* c, uint8_t* payload, unsigned int length);
+        bool            validChangeStateCommand(Channel* c, uint8_t* payload, unsigned int length);
         // To update the timer of a channel
         bool            updateChannelTimerCommand(Channel* c, uint8_t* payload, unsigned int length);
         // To enable/disable a channel

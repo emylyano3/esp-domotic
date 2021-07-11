@@ -164,6 +164,76 @@ void ESPDomotic::checkChannelsTimers() {
   }
 }
 
+#ifndef MQTT_OFF
+void ESPDomotic::receiveMqttMessage(char* topic, uint8_t* payload, unsigned int length) {
+  String sTopic = String(topic);
+  #ifdef LOGGING
+  debug(F("MQTT message received on topic"), sTopic);
+  #endif
+  if (getStationTopic("command/hrst").equals(sTopic)) {
+    moduleHardReset();
+  } else {
+    for (size_t i = 0; i < getChannelsCount(); ++i) {
+      Channel *channel = getChannel(i);
+      if (sTopic.endsWith(String(channel->name) + F("/command/enable"))) {
+        if (enableChannelCommand(channel, payload, length)) {
+          saveChannelsSettings();
+        }
+        _mqttClient.publish(getChannelTopic(channel, "feedback/enable").c_str(), channel->isEnabled() ? "1" : "0");
+      } else if (sTopic.endsWith(String(channel->name) + F("/command/timer"))) {
+        if (updateChannelTimerCommand(channel, payload, length)) {
+          saveChannelsSettings();
+        }
+      } else if (sTopic.endsWith(String(channel->name) + F("/command/rename"))) {
+        if (renameChannelCommand(channel, payload, length)) {
+          saveChannelsSettings();
+        }
+      } else if (channel->isEnabled() && channel->pinMode == OUTPUT && sTopic.endsWith(String(channel->name) + F("/command/state"))) {
+        // command/state topic is used to change the state on the channel with a desired value. So, receiving a mqtt
+        // message with this purpose has sense only if the channel is an output one.
+        if (validChangeStateCommand(channel, payload, length)) {
+          if (channel->locallyChanged) {
+            channel->locallyChanged = false;
+          } else {
+            channel->locallyChanged = true;
+          }
+        }
+      }
+    }
+  }
+  if (_mqttMessageCallback) {
+    #ifdef LOGGING
+    debug(F("Passing mqtt callback to user"));
+    #endif
+    // Workaround necesario porque el topic recibido desde mqtt se blanqueaba luego de un publish invocado dentro de la iteracion de los canales.
+    _mqttMessageCallback(&sTopic[0], payload, length);
+  }
+}
+#endif
+
+bool ESPDomotic::validChangeStateCommand(Channel* channel, uint8_t* payload, unsigned int length) {
+  #ifdef LOGGING
+  debug(F("Processing command to change channel state"), channel->name);
+  #endif
+  if (length < 1) {
+    #ifdef LOGGING
+    debug(F("Invalid payload"));
+    #endif
+    return false;
+  }
+  switch (payload[0]) {
+    case '0':
+      return updateChannelState(channel, HIGH);
+    case '1':
+      return updateChannelState(channel, LOW);
+    default:
+      #ifdef LOGGING
+      debug(F("Invalid state"), payload[0]);
+      #endif
+    return false;
+  }
+}
+
 bool ESPDomotic::updateChannelState (Channel* channel, uint8_t s) {
   bool updated;
   if (channel->state == s) {
@@ -194,53 +264,6 @@ bool ESPDomotic::updateChannelState (Channel* channel, uint8_t s) {
   _mqttClient.publish(getChannelTopic(channel, "feedback/state").c_str(), channel->state == LOW ? "1" : "0");
   return updated;
 }
-
-#ifndef MQTT_OFF
-void ESPDomotic::receiveMqttMessage(char* topic, uint8_t* payload, unsigned int length) {
-  String sTopic = String(topic);
-  #ifdef LOGGING
-  debug(F("MQTT message received on topic"), sTopic);
-  #endif
-  if (getStationTopic("command/hrst").equals(sTopic)) {
-    moduleHardReset();
-  } else {
-    for (size_t i = 0; i < getChannelsCount(); ++i) {
-      Channel *channel = getChannel(i);
-      if (sTopic.endsWith(String(channel->name) + F("/command/enable"))) {
-        if (enableChannelCommand(channel, payload, length)) {
-          saveChannelsSettings();
-        }
-        _mqttClient.publish(getChannelTopic(channel, "feedback/enabled").c_str(), channel->isEnabled() ? "1" : "0");
-      } else if (sTopic.endsWith(String(channel->name) + F("/command/timer"))) {
-        if (updateChannelTimerCommand(channel, payload, length)) {
-          saveChannelsSettings();
-        }
-      } else if (sTopic.endsWith(String(channel->name) + F("/command/rename"))) {
-        if (renameChannelCommand(channel, payload, length)) {
-          saveChannelsSettings();
-        }
-      } else if (channel->isEnabled() && channel->pinMode == OUTPUT && sTopic.endsWith(String(channel->name) + F("/command/state"))) {
-        // command/state topic is used to change the state on the channel with a desired value. So, receiving a mqtt
-        // message with this purpose has sense only if the channel is an output one.
-        if (changeStateCommand(channel, payload, length)) {
-          if (channel->locallyChanged) {
-            channel->locallyChanged = false;
-          } else {
-            channel->locallyChanged = true;
-          }
-        }
-      }
-    }
-  }
-  if (_mqttMessageCallback) {
-    #ifdef LOGGING
-    debug(F("Passing mqtt callback to user"));
-    #endif
-    // Workaround necesario porque el topic recibido desde mqtt se blanqueaba luego de un publish invocado dentro de la iteracion de los canales.
-    _mqttMessageCallback(&sTopic[0], payload, length);
-  }
-}
-#endif
 
 void ESPDomotic::moduleHardReset () {
   #ifdef LOGGING
@@ -308,29 +331,6 @@ bool ESPDomotic::renameChannelCommand(Channel* channel, uint8_t* payload, unsign
     #endif
   }
   return renamed;
-}
-
-bool ESPDomotic::changeStateCommand(Channel* channel, uint8_t* payload, unsigned int length) {
-  #ifdef LOGGING
-  debug(F("Processing command to change channel state"), channel->name);
-  #endif
-  if (length < 1) {
-    #ifdef LOGGING
-    debug(F("Invalid payload"));
-    #endif
-    return false;
-  }
-  switch (payload[0]) {
-    case '0':
-      return updateChannelState(channel, HIGH);
-    case '1':
-      return updateChannelState(channel, LOW);
-    default:
-      #ifdef LOGGING
-      debug(F("Invalid state"), payload[0]);
-      #endif
-    return false;
-  }
 }
 
 bool ESPDomotic::updateChannelTimerCommand(Channel* channel, uint8_t* payload, unsigned int length) {
