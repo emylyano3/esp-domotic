@@ -188,15 +188,19 @@ void ESPDomotic::receiveMqttMessage(char* topic, uint8_t* payload, unsigned int 
         if (renameChannelCommand(channel, payload, length)) {
           saveChannelsSettings();
         }
-      } else if (channel->isEnabled() && channel->pinMode == OUTPUT && sTopic.endsWith(String(channel->name) + F("/command/state"))) {
+      } else if (channel->pinMode == OUTPUT && sTopic.endsWith(String(channel->name) + F("/command/state"))) {
         // command/state topic is used to change the state on the channel with a desired value. So, receiving a mqtt
         // message with this purpose has sense only if the channel is an output one.
-        if (validChangeStateCommand(channel, payload, length)) {
-          if (channel->locallyChanged) {
-            channel->locallyChanged = false;
-          } else {
-            channel->locallyChanged = true;
+        if (channel->isEnabled()) {
+          if (changeStateCommand(channel, payload, length)) {
+            if (channel->locallyChanged) {
+              channel->locallyChanged = false;
+            } else {
+              channel->locallyChanged = true;
+            }
           }
+        } else {
+          _mqttClient.publish(getChannelTopic(channel, "feedback/state").c_str(), channel->state == LOW ? "1" : "0");
         }
       }
     }
@@ -211,7 +215,7 @@ void ESPDomotic::receiveMqttMessage(char* topic, uint8_t* payload, unsigned int 
 }
 #endif
 
-bool ESPDomotic::validChangeStateCommand(Channel* channel, uint8_t* payload, unsigned int length) {
+bool ESPDomotic::changeStateCommand(Channel* channel, uint8_t* payload, unsigned int length) {
   #ifdef LOGGING
   debug(F("Processing command to change channel state"), channel->name);
   #endif
