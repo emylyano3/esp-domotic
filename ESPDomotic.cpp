@@ -138,10 +138,9 @@ void ESPDomotic::loop() {
   if (!_runningStandAlone) {
     _httpServer.handleClient();
     #ifndef MQTT_OFF
-    if (!_mqttClient.connected()) {
+    if (!_mqttClient.loop()) {
       connectBroker();
     }
-    _mqttClient.loop();
     #endif
   }
   checkChannelsTimers();
@@ -274,6 +273,15 @@ void ESPDomotic::moduleHardReset () {
   debug(F("Doing a module hard reset"));
   #endif
   LittleFS.format();
+  WiFi.disconnect();
+  delay(200);
+  ESP.restart();
+}
+
+void ESPDomotic::moduleSoftReset () {
+  #ifdef LOGGING
+  debug(F("Doing a module soft reset"));
+  #endif
   WiFi.disconnect();
   delay(200);
   ESP.restart();

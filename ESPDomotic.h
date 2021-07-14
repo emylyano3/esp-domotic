@@ -88,6 +88,8 @@ class ESPDomotic {
         const char*         getStationName();
         // Resets the module and erases persisted data & wifi settings (factory restore)
         void                moduleHardReset ();
+        // REsets the module
+        void                moduleSoftReset ();
         void                setWifiConnectTimeout (uint16_t seconds);
         void                setConfigPortalTimeout (uint16_t seconds);
         void                setConfigFileSize (uint16_t bytes);
