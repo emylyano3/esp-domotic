@@ -15,13 +15,14 @@ const uint8_t       _invalidPinNo                 = 255;
 #endif
 
 #ifndef MQTT_OFF
-const unsigned long _mqttBrokerReconnectionRetry  = 5 * 1000;
+const unsigned long MQTT_RECONNECTION_RETRY_TIME    = 10 * 1000;
+const unsigned int  MQTT_RECONNECTION_MAX_RETRIES   = 10;
 #endif
-const uint8_t       _wifiMinSignalQuality         = 30;
-const uint8_t       _channelNameMaxLength         = 20;
-const uint8_t       _paramValueMaxLength          = 20;
-const uint8_t       _paramIPValueLength           = 16;   // IP max length is 15 chars
-const uint8_t       _paramPortValueLength         = 6;    // port range is from 0 to 65535
+const uint8_t       _wifiMinSignalQuality           = 30;
+const uint8_t       _channelNameMaxLength           = 20;
+const uint8_t       _paramValueMaxLength            = 20;
+const uint8_t       _paramIPValueLength             = 16;   // IP max length is 15 chars
+const uint8_t       _paramPortValueLength           = 6;    // port range is from 0 to 65535
 
 class Channel {
     public:

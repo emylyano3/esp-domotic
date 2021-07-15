@@ -30,6 +30,7 @@ WiFiClient                _wifiClient;
 PubSubClient              _mqttClient(_wifiClient);
 /* MQTT broker reconnection control */
 unsigned long             _mqttNextConnAtte     = 0;
+unsigned int              _mqttReconnections    = 0;
 #endif 
 
 char                      _stationName[_paramValueMaxLength * 3 + 4];
@@ -641,12 +642,13 @@ void ESPDomotic::loadFile (const char* fileName, char* buff, size_t size) {
 
 #ifndef MQTT_OFF
 void ESPDomotic::connectBroker() {
-  if (_mqttNextConnAtte <= millis()) {
-    _mqttNextConnAtte = millis() + _mqttBrokerReconnectionRetry;
+  if (_mqttNextConnAtte <= millis() && _mqttReconnections++ < MQTT_RECONNECTION_MAX_RETRIES) {
+    _mqttNextConnAtte = millis() + MQTT_RECONNECTION_RETRY_TIME;
     #ifdef LOGGING
     debug(F("Connecting MQTT broker as"), getStationName());
     #endif
     if (_mqttClient.connect(getStationName())) {
+      _mqttReconnections = 0;
       #ifdef LOGGING
       debug(F("MQTT broker Connected"));
       #endif
