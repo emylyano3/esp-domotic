@@ -147,6 +147,44 @@ void ESPDomotic::loop() {
   checkChannelsTimers();
 }
 
+#ifndef MQTT_OFF
+void ESPDomotic::connectBroker() {
+  if (_mqttNextConnAtte <= millis() && _mqttReconnections++ < MQTT_RECONNECTION_MAX_RETRIES) {
+    _mqttNextConnAtte = millis() + MQTT_RECONNECTION_RETRY_TIME;
+    #ifdef LOGGING
+    debug(F("Connecting MQTT broker as"), getStationName());
+    #endif
+    if (_mqttClient.connect(getStationName())) {
+      _mqttReconnections = 0;
+      #ifdef LOGGING
+      debug(F("MQTT broker Connected"));
+      #endif
+      // subscribe station to any command
+      String topic = getStationTopic("command/#");
+      _mqttClient.subscribe(topic.c_str());
+      #ifdef LOGGING
+      debug(F("Subscribed to"), topic.c_str());
+      #endif
+      // subscribe channels to any command
+      for (size_t i = 0; i < getChannelsCount(); ++i) {
+        topic = getChannelTopic(getChannel(i), "command/+");
+        #ifdef LOGGING
+        debug(F("Subscribed to"), topic.c_str());
+        #endif
+        _mqttClient.subscribe(topic.c_str());
+      }
+      if (_mqttConnectionCallback) {
+        _mqttConnectionCallback();
+      }
+    } else {
+      #ifdef LOGGING
+      debug(F("Failed. RC:"), _mqttClient.state());
+      #endif
+    }
+  }
+}
+#endif
+
 void ESPDomotic::checkChannelsTimers() {
   for (size_t i = 0; i < getChannelsCount(); ++i) {
     Channel *channel = getChannel(i);
@@ -639,44 +677,6 @@ void ESPDomotic::loadFile (const char* fileName, char* buff, size_t size) {
     #endif
   }
 }
-
-#ifndef MQTT_OFF
-void ESPDomotic::connectBroker() {
-  if (_mqttNextConnAtte <= millis() && _mqttReconnections++ < MQTT_RECONNECTION_MAX_RETRIES) {
-    _mqttNextConnAtte = millis() + MQTT_RECONNECTION_RETRY_TIME;
-    #ifdef LOGGING
-    debug(F("Connecting MQTT broker as"), getStationName());
-    #endif
-    if (_mqttClient.connect(getStationName())) {
-      _mqttReconnections = 0;
-      #ifdef LOGGING
-      debug(F("MQTT broker Connected"));
-      #endif
-      // subscribe station to any command
-      String topic = getStationTopic("command/#");
-      _mqttClient.subscribe(topic.c_str());
-      #ifdef LOGGING
-      debug(F("Subscribed to"), topic.c_str());
-      #endif
-      // subscribe channels to any command
-      for (size_t i = 0; i < getChannelsCount(); ++i) {
-        topic = getChannelTopic(getChannel(i), "command/+");
-        #ifdef LOGGING
-        debug(F("Subscribed to"), topic.c_str());
-        #endif
-        _mqttClient.subscribe(topic.c_str());
-      }
-      if (_mqttConnectionCallback) {
-        _mqttConnectionCallback();
-      }
-    } else {
-      #ifdef LOGGING
-      debug(F("Failed. RC:"), _mqttClient.state());
-      #endif
-    }
-  }
-}
-#endif
 
 bool ESPDomotic::updateConf(const char* key, char* value) {
   File file = LittleFS.open(key, "w");
