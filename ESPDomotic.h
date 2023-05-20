@@ -15,8 +15,16 @@ const uint8_t       _invalidPinNo                 = 255;
 #endif
 
 #ifndef MQTT_OFF
-const unsigned long MQTT_RECONNECTION_RETRY_TIME    = 10 * 1000;
-const unsigned int  MQTT_RECONNECTION_MAX_RETRIES   = 100;
+    #ifdef MQTT_RECONNECTION_RETRY_WAIT_MILLIS
+    const unsigned long _mqtt_reconnection_retry_wait_millis    = MQTT_RECONNECTION_RETRY_WAIT_MILLIS;
+    #else
+    const unsigned long _mqtt_reconnection_retry_wait_millis    = 10 * 1000;
+    #endif
+    #ifdef MQTT_RECONNECTION_MAX_RETRIES
+    const unsigned long _mqtt_reconnection_max_retries    = MQTT_RECONNECTION_MAX_RETRIES;
+    #else
+    const unsigned long _mqtt_reconnection_max_retries    = 1000;
+    #endif
 #endif
 const uint8_t       _wifiMinSignalQuality           = 30;
 const uint8_t       _channelNameMaxLength           = 20;

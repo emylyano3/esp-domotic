@@ -149,8 +149,8 @@ void ESPDomotic::loop() {
 
 #ifndef MQTT_OFF
 void ESPDomotic::connectBroker() {
-  if (_mqttNextConnAtte <= millis() && _mqttReconnections++ < MQTT_RECONNECTION_MAX_RETRIES) {
-    _mqttNextConnAtte = millis() + MQTT_RECONNECTION_RETRY_TIME;
+  if (_mqttNextConnAtte <= millis() && _mqttReconnections++ < _mqtt_reconnection_max_retries) {
+    _mqttNextConnAtte = millis() + _mqtt_reconnection_retry_wait_millis;
     #ifdef LOGGING
     debug(F("Connecting MQTT broker as"), getStationName());
     #endif
