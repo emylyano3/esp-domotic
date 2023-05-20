@@ -16,7 +16,7 @@ const uint8_t       _invalidPinNo                 = 255;
 
 #ifndef MQTT_OFF
 const unsigned long MQTT_RECONNECTION_RETRY_TIME    = 10 * 1000;
-const unsigned int  MQTT_RECONNECTION_MAX_RETRIES   = 10;
+const unsigned int  MQTT_RECONNECTION_MAX_RETRIES   = 100;
 #endif
 const uint8_t       _wifiMinSignalQuality           = 30;
 const uint8_t       _channelNameMaxLength           = 20;
