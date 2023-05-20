@@ -210,6 +210,8 @@ void ESPDomotic::receiveMqttMessage(char* topic, uint8_t* payload, unsigned int 
   #endif
   if (getStationTopic("command/hrst").equals(sTopic)) {
     moduleHardReset();
+  } else if (getStationTopic("command/rst").equals(sTopic)) {
+    moduleSoftReset();
   } else {
     for (size_t i = 0; i < getChannelsCount(); ++i) {
       Channel *channel = getChannel(i);
