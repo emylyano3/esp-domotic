@@ -109,6 +109,8 @@ void ESPDomotic::init() {
     debug(F("Configuring MQTT broker"));
     debug(F("HOST"), getMqttServerHost());
     debug(F("PORT"), getMqttServerPort());
+    debug(F("Reconnection max retries: "), _mqtt_reconnection_max_retries);
+    debug(F("Reconnection wait millis: "), _mqtt_reconnection_retry_wait_millis);
     #endif
     _mqttClient.setServer(getMqttServerHost(), getMqttServerPort());
     _mqttClient.setCallback(std::bind(&ESPDomotic::receiveMqttMessage, this, std::placeholders::_1, std::placeholders::_2, std::placeholders::_3));
