@@ -15,8 +15,16 @@ const uint8_t       _invalidPinNo                 = 255;
 #endif
 
 #ifndef MQTT_OFF
-const unsigned long MQTT_RECONNECTION_RETRY_TIME    = 10 * 1000;
-const unsigned int  MQTT_RECONNECTION_MAX_RETRIES   = 10;
+    #ifdef MQTT_RECONNECTION_RETRY_WAIT_MILLIS
+    const unsigned long _mqtt_reconnection_retry_wait_millis    = MQTT_RECONNECTION_RETRY_WAIT_MILLIS;
+    #else
+    const unsigned long _mqtt_reconnection_retry_wait_millis    = 10 * 1000;
+    #endif
+    #ifdef MQTT_RECONNECTION_MAX_RETRIES
+    const unsigned long _mqtt_reconnection_max_retries    = MQTT_RECONNECTION_MAX_RETRIES;
+    #else
+    const unsigned long _mqtt_reconnection_max_retries    = 1000;
+    #endif
 #endif
 const uint8_t       _wifiMinSignalQuality           = 30;
 const uint8_t       _channelNameMaxLength           = 20;
@@ -26,21 +34,24 @@ const uint8_t       _paramPortValueLength           = 6;    // port range is fro
 
 class Channel {
     public:
-        Channel(const char* id, const char* name, uint8_t pin, uint8_t pinMode, uint8_t state);
-        Channel(const char* id, const char* name, uint8_t pin, uint8_t pinMode, uint8_t state, uint32_t timer);
+        Channel(const char* id, const char* name, uint8_t pin, uint8_t pinMode, int state);
+        Channel(const char* id, const char* name, uint8_t pin, uint8_t pinMode, int state, bool analog);
+        Channel(const char* id, const char* name, uint8_t pin, uint8_t pinMode, int state, uint32_t timer);
+        Channel(const char* id, const char* name, uint8_t pin, uint8_t pinMode, int state, bool analog, uint32_t timer);
 
         const char*     id;
         char*           name;
         uint8_t         pin;
         uint8_t         pinMode;
-        uint8_t         state;
+        int             state;
+        bool            analog;
         unsigned long   timer;
         bool            enabled;
         bool            locallyChanged;
 
         unsigned long   timerControl;
         
-        void    init(const char* id, const char* name, uint8_t pin, uint8_t pinMode, uint8_t state, uint32_t timer);
+        void    init(const char* id, const char* name, uint8_t pin, uint8_t pinMode, int state, bool analog, uint32_t timer);
 
         // Updates the channel´s name
         void    updateName (const char *v);
@@ -48,6 +59,8 @@ class Channel {
         void    updateTimerControl();
 
         bool    timeIsUp();
+
+        bool    isOutput();
 
         bool    isEnabled();
 };
@@ -123,12 +136,12 @@ class ESPDomotic {
         // Save the channel settings in FS
         void            saveChannelsSettings ();
         // Updates the state of the channel with the new state
-        bool            updateChannelState (Channel* channel, uint8_t state);
+        bool            updateChannelState (Channel* channel, int state);
         // Adds new channel to manage
         void            addChannel(Channel* c);
         // To rename a channel
         bool            renameChannelCommand(Channel* c, uint8_t* payload, unsigned int length);
-        // To change the state of a channel. Intened to use with channel configures as OUTPUT
+        // To change the state of a channel. Intened to use with channel configured as OUTPUT
         bool            changeStateCommand(Channel* c, uint8_t* payload, unsigned int length);
         // To update the timer of a channel
         bool            updateChannelTimerCommand(Channel* c, uint8_t* payload, unsigned int length);
@@ -171,6 +184,10 @@ class ESPDomotic {
         void            connectBroker();
         #endif
         
+        /*Actions over channels*/
+        void            readChannel(Channel *channel);
+        void            writeChannel(Channel *channel);
+
         /* Utils */
         bool            loadConfig();
         void            saveConfig();

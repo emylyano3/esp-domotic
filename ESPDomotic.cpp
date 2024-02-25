@@ -11,6 +11,9 @@
 #include <ArduinoJson.h>
 #endif
 
+//TODO Pasar todo String a std::string
+//#include <string>
+
 /* Config params */
 #ifndef MQTT_OFF
 ESPConfigParam            _mqttPort (Text, "mqttPort", "MQTT port", "", _paramPortValueLength, "required");
@@ -94,13 +97,13 @@ void ESPDomotic::init() {
   #endif
   for (int i = 0; i < _channelsCount; ++i) {
     #ifdef LOGGING
-    Serial.printf("Setting pin %d of channel %s to %s mode\n", _channels[i]->pin, _channels[i]->name, _channels[i]->pinMode == OUTPUT ? "OUTPUT" : "INPUT");
+    Serial.printf("Setting pin %d of channel %s to %s mode\n", _channels[i]->pin, _channels[i]->name, _channels[i]->isOutput() ? "OUTPUT" : "INPUT");
     #endif
     pinMode(_channels[i]->pin, _channels[i]->pinMode);
-    if (_channels[i]->pinMode == OUTPUT) {
-      digitalWrite(_channels[i]->pin, _channels[i]->state);
+    if (_channels[i]->isOutput()) {
+      writeChannel(_channels[i]);
     } else {
-      _channels[i]->state = digitalRead(_channels[i]->pin);
+      readChannel(_channels[i]);
     }
   }
   if (!_runningStandAlone) {
@@ -135,6 +138,22 @@ void ESPDomotic::init() {
   }
 }
 
+void ESPDomotic::writeChannel(Channel *channel) {
+  if (channel->analog) {
+    analogWrite(channel->pin, channel->state);
+  } else {
+    digitalWrite(channel->pin, channel->state);
+  }
+}
+
+void ESPDomotic::readChannel(Channel *channel) {
+  if (channel->analog) {
+    channel->state = analogRead(channel->pin);
+  } else {
+    channel->state = digitalRead(channel->pin);
+  }
+}
+
 void ESPDomotic::loop() {
   if (!_runningStandAlone) {
     _httpServer.handleClient();
@@ -149,8 +168,8 @@ void ESPDomotic::loop() {
 
 #ifndef MQTT_OFF
 void ESPDomotic::connectBroker() {
-  if (_mqttNextConnAtte <= millis() && _mqttReconnections++ < MQTT_RECONNECTION_MAX_RETRIES) {
-    _mqttNextConnAtte = millis() + MQTT_RECONNECTION_RETRY_TIME;
+  if (_mqttNextConnAtte <= millis() && _mqttReconnections++ < _mqtt_reconnection_max_retries) {
+    _mqttNextConnAtte = millis() + _mqtt_reconnection_retry_wait_millis;
     #ifdef LOGGING
     debug(F("Connecting MQTT broker as"), getStationName());
     #endif
@@ -194,7 +213,7 @@ void ESPDomotic::checkChannelsTimers() {
       debug("Timer triggered for channel", channel->name);
       #endif
       // Flip the channel state
-      uint8_t state = channel->state == LOW ? HIGH : LOW;
+      int state = channel->state == LOW ? HIGH : LOW;
       if (updateChannelState(channel, state)) {
         channel->locallyChanged = false;
       }
@@ -210,6 +229,8 @@ void ESPDomotic::receiveMqttMessage(char* topic, uint8_t* payload, unsigned int 
   #endif
   if (getStationTopic("command/hrst").equals(sTopic)) {
     moduleHardReset();
+  } else if (getStationTopic("command/rst").equals(sTopic)) {
+    moduleSoftReset();
   } else {
     for (size_t i = 0; i < getChannelsCount(); ++i) {
       Channel *channel = getChannel(i);
@@ -226,7 +247,7 @@ void ESPDomotic::receiveMqttMessage(char* topic, uint8_t* payload, unsigned int 
         if (renameChannelCommand(channel, payload, length)) {
           saveChannelsSettings();
         }
-      } else if (channel->pinMode == OUTPUT && sTopic.endsWith(String(channel->name) + F("/command/state"))) {
+      } else if (channel->isOutput() && sTopic.endsWith(String(channel->name) + F("/command/state"))) {
         // command/state topic is used to change the state on the channel with a desired value. So, receiving a mqtt
         // message with this purpose has sense only if the channel is an output one.
         if (channel->isEnabled()) {
@@ -276,7 +297,7 @@ bool ESPDomotic::changeStateCommand(Channel* channel, uint8_t* payload, unsigned
   }
 }
 
-bool ESPDomotic::updateChannelState (Channel* channel, uint8_t s) {
+bool ESPDomotic::updateChannelState (Channel* channel, int s) {
   bool updated;
   if (channel->state == s) {
     #ifdef LOGGING
@@ -501,6 +522,7 @@ ESP8266WebServer* ESPDomotic::getHttpServer() {
 #ifndef MQTT_OFF
 String ESPDomotic::getChannelTopic (Channel *channel, String suffix) {
   return String(getModuleType()) + F("/") + getModuleLocation() + F("/") + getModuleName() + F("/") + channel->name + F("/") + suffix;
+  // std::string s2 = std::string(getModuleType()) + "/" + getModuleLocation() + "/" + getModuleName() + "/" + channel->name + "/" + suffix.c_str();
 }
 
 String ESPDomotic::getStationTopic (String suffix) {
@@ -852,18 +874,24 @@ template <class T, class U> void ESPDomotic::debug (T key, U value) {
 }
 #endif
 
-Channel::Channel(const char* id, const char* name, uint8_t pin, uint8_t pinMode, uint8_t state) {
-  init(id, name, pin, pinMode, state, -1);
+Channel::Channel(const char* id, const char* name, uint8_t pin, uint8_t pinMode, int state) {
+  init(id, name, pin, pinMode, state, false, -1);
+}
+Channel::Channel(const char* id, const char* name, uint8_t pin, uint8_t pinMode, int state, bool analog) {
+  init(id, name, pin, pinMode, state, analog, -1);
+}
+Channel::Channel(const char* id, const char* name, uint8_t pin, uint8_t pinMode, int state, uint32_t timer) {
+  init(id, name, pin, pinMode, state, false, timer);
+}
+Channel::Channel(const char* id, const char* name, uint8_t pin, uint8_t pinMode, int state, bool analog, uint32_t timer) {
+  init(id, name, pin, pinMode, state, analog, timer);
 }
 
-Channel::Channel(const char* id, const char* name, uint8_t pin, uint8_t pinMode, uint8_t state, uint32_t timer) {
-  init(id, name, pin, pinMode, state, timer);
-}
-
-void Channel::init(const char* id, const char* name, uint8_t pin, uint8_t pinMode, uint8_t state, uint32_t timer) {
+void Channel::init(const char* id, const char* name, uint8_t pin, uint8_t pinMode, int state, bool analog, uint32_t timer) {
   this->id = id;
   this->pin = pin;
   this->state = state;
+  this->analog = analog;
   this->timer = timer;
   this->enabled = true;
   this->pinMode = pinMode;
@@ -885,4 +913,8 @@ bool Channel::timeIsUp() {
 
 bool Channel::isEnabled () {
   return this->enabled && this->name != NULL && strlen(this->name) > 0;
+}
+
+bool Channel::isOutput() {
+  return this->pinMode == OUTPUT;
 }
