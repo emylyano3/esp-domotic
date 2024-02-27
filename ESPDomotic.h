@@ -41,17 +41,18 @@ class Channel {
         Channel(const char* id, const char* name, uint8_t pin, uint8_t pinMode, int currState, uint32_t timer);
         Channel(const char* id, const char* name, uint8_t pin, uint8_t pinMode, int currState, bool analog, uint32_t timer);
 
-        const char*     id;
-        char*           name;
-        uint8_t         pin;
-        uint8_t         pinMode;
-        int             currState;
-        int             prevState;
-        bool            analog;
-        unsigned long   timer;
-        bool            enabled;
-        bool            binary = true;
-        bool            inverted = true;
+        const char*             id;
+        char*                   name;
+        uint8_t                 pin;
+        uint8_t                 pinMode;
+        int                     currState;
+        int                     prevState;
+        bool                    analog;
+        unsigned long           timer;
+        bool                    enabled;
+        bool                    binary = true;
+        bool                    inverted = true;
+        std::function<int(int)> valueMapper;
 
         unsigned long   timerControl;
         
@@ -75,7 +76,16 @@ class Channel {
             Read the value from the pin related to the channel, and updates the channel state.
             Returns true if value is read from pin, false otherwise.
         */
-        bool     read();
+        bool    read();
+
+        // Sets the mapper to map the channel state
+        void    setStateMapper(std::function<int(int)> mapper);
+
+        /* 
+            Returns the channel current state mapped, according to the mapper function defined.
+            If no mapper defined, plain value is returned instead
+        */
+        int     getStateMapped();
 };
 
 /*

@@ -173,9 +173,7 @@ void ESPDomotic::checkInputChannels() {
     Channel *channel = getChannel(i);
     if (channel->read()) {
       String topic = getChannelTopic(channel, "feedback/state");
-      // uint32_t mapped = map(_sensorChannel.state, AIR_VALUE, WATER_VALUE, 0, 100);
-      // const char *payload = std::to_string(mapped).c_str();
-      const char *payload = std::to_string(channel->currState).c_str();
+      const char *payload = std::to_string(channel->getStateMapped()).c_str();
       getMqttClient()->publish(topic.c_str(), payload);
     }
   }
@@ -423,6 +421,9 @@ void ESPDomotic::setPortalSSID (const char* ssid) {
 void ESPDomotic::addChannel(Channel *channel) {
   if (_channelsCount < MAX_CHANNELS) {
     _channels[_channelsCount++] = channel;
+    #ifdef LOGGING
+    debug(F("Channel added"), channel->name);
+    #endif
   } else {
     #ifdef LOGGING
     debug(F("No more channels suported"));
@@ -913,6 +914,17 @@ void Channel::write(int value) {
     #endif   
     digitalWrite(this->pin, this->currState);
   }
+}
+
+void Channel::setStateMapper(std::function<int(int)> mapper) {
+  this->valueMapper = mapper;
+}
+
+int Channel::getStateMapped() {
+  if (this->valueMapper) {
+    return this->valueMapper(this->currState);
+  }
+  return this->currState;
 }
 
 bool Channel::read() {
