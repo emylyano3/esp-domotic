@@ -33,6 +33,8 @@ const uint8_t       _paramIPValueLength             = 16;   // IP max length is 
 const uint8_t       _paramPortValueLength           = 6;    // port range is from 0 to 65535
 
 class Channel {
+    const uint32_t NO_TIMER = -1;
+    
     public:
         Channel(const char* id, const char* name, uint8_t pin, uint8_t pinMode, int currState);
         Channel(const char* id, const char* name, uint8_t pin, uint8_t pinMode, int currState, bool analog);

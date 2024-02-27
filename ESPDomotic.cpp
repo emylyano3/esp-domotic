@@ -844,10 +844,10 @@ template <class T, class U> void ESPDomotic::debug (T key, U value) {
 #endif
 
 Channel::Channel(const char* id, const char* name, uint8_t pin, uint8_t pinMode, int currState) {
-  init(id, name, pin, pinMode, currState, false, -1);
+  init(id, name, pin, pinMode, currState, false, NO_TIMER);
 }
 Channel::Channel(const char* id, const char* name, uint8_t pin, uint8_t pinMode, int currState, bool analog) {
-  init(id, name, pin, pinMode, currState, analog, -1);
+  init(id, name, pin, pinMode, currState, analog, NO_TIMER);
 }
 Channel::Channel(const char* id, const char* name, uint8_t pin, uint8_t pinMode, int currState, uint32_t timer) {
   init(id, name, pin, pinMode, currState, false, timer);
@@ -920,7 +920,6 @@ bool Channel::read() {
   if (this->timeIsUp()) {
     if (this->analog) {
       this->currState = analogRead(this->pin);
-      return true;
     } else {
       int read = digitalRead(this->pin);
       if (this->binary) {
