@@ -12,7 +12,7 @@
 #endif
 
 //TODO Pasar todo String a std::string
-//#include <string>
+#include <string>
 
 /* Config params */
 #ifndef MQTT_OFF
@@ -101,9 +101,9 @@ void ESPDomotic::init() {
     #endif
     pinMode(_channels[i]->pin, _channels[i]->pinMode);
     if (_channels[i]->isOutput()) {
-      writeChannel(_channels[i]);
+      _channels[i]->write(_channels[i]->currState);
     } else {
-      readChannel(_channels[i]);
+      _channels[i]->read();
     }
   }
   if (!_runningStandAlone) {
@@ -138,22 +138,6 @@ void ESPDomotic::init() {
   }
 }
 
-void ESPDomotic::writeChannel(Channel *channel) {
-  if (channel->analog) {
-    analogWrite(channel->pin, channel->state);
-  } else {
-    digitalWrite(channel->pin, channel->state);
-  }
-}
-
-void ESPDomotic::readChannel(Channel *channel) {
-  if (channel->analog) {
-    channel->state = analogRead(channel->pin);
-  } else {
-    channel->state = digitalRead(channel->pin);
-  }
-}
-
 void ESPDomotic::loop() {
   if (!_runningStandAlone) {
     _httpServer.handleClient();
@@ -163,7 +147,38 @@ void ESPDomotic::loop() {
     }
     #endif
   }
-  checkChannelsTimers();
+  checkOutputChannelsTimers();
+  checkInputChannels();
+}
+
+void ESPDomotic::checkOutputChannelsTimers() {
+  if (_behaviourLocked) {
+    return;
+  }
+  for (size_t i = 0; i < getChannelsCount(); ++i) {
+    Channel *channel = getChannel(i);
+    // Timer is checked just if the channel state was changed from the logic inside this lib (locally changed)
+    if (channel->isOutput() && channel->timeIsUp()) {
+      #ifdef LOGGING
+      debug("Timer on output channel is up", channel->name);
+      #endif
+      // Flip the channel state
+      updateChannelState(channel, channel->prevState);
+    }
+  }
+}
+
+void ESPDomotic::checkInputChannels() {
+  for (size_t i = 0; i < getChannelsCount(); ++i) {
+    Channel *channel = getChannel(i);
+    if (channel->read()) {
+      String topic = getChannelTopic(channel, "feedback/state");
+      // uint32_t mapped = map(_sensorChannel.state, AIR_VALUE, WATER_VALUE, 0, 100);
+      // const char *payload = std::to_string(mapped).c_str();
+      const char *payload = std::to_string(channel->currState).c_str();
+      getMqttClient()->publish(topic.c_str(), payload);
+    }
+  }
 }
 
 #ifndef MQTT_OFF
@@ -204,23 +219,6 @@ void ESPDomotic::connectBroker() {
 }
 #endif
 
-void ESPDomotic::checkChannelsTimers() {
-  for (size_t i = 0; i < getChannelsCount(); ++i) {
-    Channel *channel = getChannel(i);
-    // Timer is checked just if the channel state was changed from the logic inside this lib (locally changed)
-    if (channel->locallyChanged && channel->timeIsUp()) {
-      #ifdef LOGGING
-      debug("Timer triggered for channel", channel->name);
-      #endif
-      // Flip the channel state
-      int state = channel->state == LOW ? HIGH : LOW;
-      if (updateChannelState(channel, state)) {
-        channel->locallyChanged = false;
-      }
-    }
-  }
-}
-
 #ifndef MQTT_OFF
 void ESPDomotic::receiveMqttMessage(char* topic, uint8_t* payload, unsigned int length) {
   String sTopic = String(topic);
@@ -243,24 +241,19 @@ void ESPDomotic::receiveMqttMessage(char* topic, uint8_t* payload, unsigned int 
         if (updateChannelTimerCommand(channel, payload, length)) {
           saveChannelsSettings();
         }
+        std::string sTimer = std::to_string(channel->timer);
+        _mqttClient.publish(getChannelTopic(channel, "feedback/timer").c_str(), sTimer.c_str());
       } else if (sTopic.endsWith(String(channel->name) + F("/command/rename"))) {
         if (renameChannelCommand(channel, payload, length)) {
           saveChannelsSettings();
         }
-      } else if (channel->isOutput() && sTopic.endsWith(String(channel->name) + F("/command/state"))) {
+      } else if (sTopic.endsWith(String(channel->name) + F("/command/state"))) {
         // command/state topic is used to change the state on the channel with a desired value. So, receiving a mqtt
         // message with this purpose has sense only if the channel is an output one.
-        if (channel->isEnabled()) {
-          if (changeStateCommand(channel, payload, length)) {
-            if (channel->locallyChanged) {
-              channel->locallyChanged = false;
-            } else {
-              channel->locallyChanged = true;
-            }
-          }
-        } else {
-          _mqttClient.publish(getChannelTopic(channel, "feedback/state").c_str(), channel->state == LOW ? "1" : "0");
+        if (channel->isEnabled() && channel->isOutput()) {
+          changeOutputChannelStateCommand(channel, payload, length);
         }
+        _mqttClient.publish(getChannelTopic(channel, "feedback/state").c_str(), channel->currState == LOW ? "1" : "0");
       }
     }
   }
@@ -274,7 +267,7 @@ void ESPDomotic::receiveMqttMessage(char* topic, uint8_t* payload, unsigned int 
 }
 #endif
 
-bool ESPDomotic::changeStateCommand(Channel* channel, uint8_t* payload, unsigned int length) {
+bool ESPDomotic::changeOutputChannelStateCommand(Channel* channel, uint8_t* payload, unsigned int length) {
   #ifdef LOGGING
   debug(F("Processing command to change channel state"), channel->name);
   #endif
@@ -284,48 +277,24 @@ bool ESPDomotic::changeStateCommand(Channel* channel, uint8_t* payload, unsigned
     #endif
     return false;
   }
-  switch (payload[0]) {
-    case '0':
-      return updateChannelState(channel, HIGH);
-    case '1':
-      return updateChannelState(channel, LOW);
-    default:
-      #ifdef LOGGING
-      debug(F("Invalid state"), payload[0]);
-      #endif
+  int* value = reinterpret_cast<int*>(payload);
+  return updateChannelState(channel, *value);
+}
+
+bool ESPDomotic::updateChannelState (Channel* channel, int state) {
+  if (channel->currState == state) {
+    #ifdef LOGGING
+    debug(F("Channel is in same state, skipping"), state);
+    #endif
     return false;
+  } else {
+    channel->write(state);
+    return true;
   }
 }
 
-bool ESPDomotic::updateChannelState (Channel* channel, int s) {
-  bool updated;
-  if (channel->state == s) {
-    #ifdef LOGGING
-    debug(F("Channel is in same state, skipping"), s);
-    #endif
-    updated = false;
-  } else {
-    #ifdef LOGGING
-    debug(F("Changing channel state to"), channel->state == HIGH ? "[ON]" : "[OFF]");
-    #endif
-    channel->state = s;
-    digitalWrite(channel->pin, channel->state);
-    if (channel->state == LOW) {
-      #ifdef LOGGING
-      debug(F("Setting timer control (seconds)"), channel->timer / 1000);
-      #endif
-      channel->updateTimerControl();
-    } else {
-      #ifdef LOGGING
-      debug(F("Resetting timer control"));
-      #endif
-      // Setting timerControl to 0 means no need of further timer checking
-      channel->timerControl = 0;
-    }
-    updated = true;
-  }
-  _mqttClient.publish(getChannelTopic(channel, "feedback/state").c_str(), channel->state == LOW ? "1" : "0");
-  return updated;
+void ESPDomotic::lockBehaviour(bool lock) {
+  this->_behaviourLocked = lock;
 }
 
 void ESPDomotic::moduleHardReset () {
@@ -874,28 +843,30 @@ template <class T, class U> void ESPDomotic::debug (T key, U value) {
 }
 #endif
 
-Channel::Channel(const char* id, const char* name, uint8_t pin, uint8_t pinMode, int state) {
-  init(id, name, pin, pinMode, state, false, -1);
+Channel::Channel(const char* id, const char* name, uint8_t pin, uint8_t pinMode, int currState) {
+  init(id, name, pin, pinMode, currState, false, -1);
 }
-Channel::Channel(const char* id, const char* name, uint8_t pin, uint8_t pinMode, int state, bool analog) {
-  init(id, name, pin, pinMode, state, analog, -1);
+Channel::Channel(const char* id, const char* name, uint8_t pin, uint8_t pinMode, int currState, bool analog) {
+  init(id, name, pin, pinMode, currState, analog, -1);
 }
-Channel::Channel(const char* id, const char* name, uint8_t pin, uint8_t pinMode, int state, uint32_t timer) {
-  init(id, name, pin, pinMode, state, false, timer);
+Channel::Channel(const char* id, const char* name, uint8_t pin, uint8_t pinMode, int currState, uint32_t timer) {
+  init(id, name, pin, pinMode, currState, false, timer);
 }
-Channel::Channel(const char* id, const char* name, uint8_t pin, uint8_t pinMode, int state, bool analog, uint32_t timer) {
-  init(id, name, pin, pinMode, state, analog, timer);
+Channel::Channel(const char* id, const char* name, uint8_t pin, uint8_t pinMode, int currState, bool analog, uint32_t timer) {
+  init(id, name, pin, pinMode, currState, analog, timer);
 }
 
-void Channel::init(const char* id, const char* name, uint8_t pin, uint8_t pinMode, int state, bool analog, uint32_t timer) {
+void Channel::init(const char* id, const char* name, uint8_t pin, uint8_t pinMode, int currState, bool analog, uint32_t timer) {
   this->id = id;
   this->pin = pin;
-  this->state = state;
+  this->currState = currState;
   this->analog = analog;
   this->timer = timer;
   this->enabled = true;
   this->pinMode = pinMode;
   this->name = new char[_channelNameMaxLength + 1];
+  // This is because if it is an input channel we want timerControl not to be 0 in order to timer check works properly
+  this->timerControl = pinMode == OUTPUT ? 0 : timer;
   updateName(name);
 }
 
@@ -917,4 +888,50 @@ bool Channel::isEnabled () {
 
 bool Channel::isOutput() {
   return this->pinMode == OUTPUT;
+}
+
+void Channel::write(int value) {
+  this->prevState = this->currState;
+  if (this->analog) {
+    this->currState = value;
+    #ifdef LOGGING
+    // debug(F("Changing channel state to"), this->currState);
+    #endif
+    analogWrite(this->pin, this->currState);
+  } else {
+    if (this->binary) {
+      if (value == HIGH) {
+        this->updateTimerControl();
+      }
+      if (this->inverted) {
+        value = value == LOW ? HIGH : LOW;
+      }
+    } 
+    this->currState = value;
+    #ifdef LOGGING
+    // debug(F("Changing channel state to"), this->currState == HIGH ? "[ON]" : "[OFF]");
+    #endif   
+    digitalWrite(this->pin, this->currState);
+  }
+}
+
+bool Channel::read() {
+  this->prevState = this->currState;
+  if (this->timeIsUp()) {
+    if (this->analog) {
+      this->currState = analogRead(this->pin);
+      return true;
+    } else {
+      int read = digitalRead(this->pin);
+      if (this->binary) {
+        if (this->inverted) {
+          read = read == LOW ? HIGH : LOW;
+        }
+      }
+      this->currState = read;
+    }
+    this->updateTimerControl();
+    return true;
+  }
+  return false;
 }
