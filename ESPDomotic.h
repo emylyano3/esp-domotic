@@ -33,25 +33,30 @@ const uint8_t       _paramIPValueLength             = 16;   // IP max length is 
 const uint8_t       _paramPortValueLength           = 6;    // port range is from 0 to 65535
 
 class Channel {
+    const uint32_t NO_TIMER = -1;
+    
     public:
-        Channel(const char* id, const char* name, uint8_t pin, uint8_t pinMode, int state);
-        Channel(const char* id, const char* name, uint8_t pin, uint8_t pinMode, int state, bool analog);
-        Channel(const char* id, const char* name, uint8_t pin, uint8_t pinMode, int state, uint32_t timer);
-        Channel(const char* id, const char* name, uint8_t pin, uint8_t pinMode, int state, bool analog, uint32_t timer);
+        Channel(const char* id, const char* name, uint8_t pin, uint8_t pinMode, int currState);
+        Channel(const char* id, const char* name, uint8_t pin, uint8_t pinMode, int currState, bool analog);
+        Channel(const char* id, const char* name, uint8_t pin, uint8_t pinMode, int currState, uint32_t timer);
+        Channel(const char* id, const char* name, uint8_t pin, uint8_t pinMode, int currState, bool analog, uint32_t timer);
 
-        const char*     id;
-        char*           name;
-        uint8_t         pin;
-        uint8_t         pinMode;
-        int             state;
-        bool            analog;
-        unsigned long   timer;
-        bool            enabled;
-        bool            locallyChanged;
+        const char*             id;
+        char*                   name;
+        uint8_t                 pin;
+        uint8_t                 pinMode;
+        int                     currState;
+        int                     prevState;
+        bool                    analog;
+        unsigned long           timer;
+        bool                    enabled;
+        bool                    binary = true;
+        bool                    inverted = true;
+        std::function<int(int)> valueMapper;
 
         unsigned long   timerControl;
         
-        void    init(const char* id, const char* name, uint8_t pin, uint8_t pinMode, int state, bool analog, uint32_t timer);
+        void    init(const char* id, const char* name, uint8_t pin, uint8_t pinMode, int currState, bool analog, uint32_t timer);
 
         // Updates the channel´s name
         void    updateName (const char *v);
@@ -63,6 +68,24 @@ class Channel {
         bool    isOutput();
 
         bool    isEnabled();
+
+        // Set the value in channel and writes it over the device pin
+        void    write(int value);
+
+        /*
+            Read the value from the pin related to the channel, and updates the channel state.
+            Returns true if value is read from pin, false otherwise.
+        */
+        bool    read();
+
+        // Sets the mapper to map the channel state
+        void    setStateMapper(std::function<int(int)> mapper);
+
+        /* 
+            Returns the channel current state mapped, according to the mapper function defined.
+            If no mapper defined, plain value is returned instead
+        */
+        int     getStateMapped();
 };
 
 /*
@@ -82,8 +105,10 @@ class ESPDomotic {
         void    init();
         // Must be called inside main loop
         void    loop();
-        // Check channels timers and updates its states
-        void    checkChannelsTimers();
+        // Check timers on output channels and updates its states if time is up
+        void    checkOutputChannelsTimers();
+        // Read channels checking if is it time to read
+        void    checkInputChannels();
 
         /* Module settings */
         // Sets the SSID for the configuration portal (When module enters in AP mode)
@@ -141,8 +166,8 @@ class ESPDomotic {
         void            addChannel(Channel* c);
         // To rename a channel
         bool            renameChannelCommand(Channel* c, uint8_t* payload, unsigned int length);
-        // To change the state of a channel. Intened to use with channel configured as OUTPUT
-        bool            changeStateCommand(Channel* c, uint8_t* payload, unsigned int length);
+        // To change the state of an output channel.
+        bool            changeOutputChannelStateCommand(Channel* c, uint8_t* payload, unsigned int length);
         // To update the timer of a channel
         bool            updateChannelTimerCommand(Channel* c, uint8_t* payload, unsigned int length);
         // To enable/disable a channel
@@ -161,11 +186,19 @@ class ESPDomotic {
         // Returns the configuracion value that exists under the specified key. Null if none.
         char*           getConf(const char* key);
 
+        /*
+            Sets the lock behaviour flag. 
+            Useful in situations where the automatic enable/disable of channels through timers can have an undisired effect
+            in a greater sequence.
+        */
+        void            lockBehaviour(bool lock);
+
         /* Logging */
         template <class T> void             debug(T text);
         template <class T, class U> void    debug(T key, U value);
 
     private:
+        bool            _behaviourLocked   = false;
         const char*     _moduleType     = "generic";
         const char*     _apSSID         = NULL;
         uint8_t         _feedbackPin    = _invalidPinNo;
@@ -184,10 +217,6 @@ class ESPDomotic {
         void            connectBroker();
         #endif
         
-        /*Actions over channels*/
-        void            readChannel(Channel *channel);
-        void            writeChannel(Channel *channel);
-
         /* Utils */
         bool            loadConfig();
         void            saveConfig();
